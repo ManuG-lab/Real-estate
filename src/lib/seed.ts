@@ -2,54 +2,69 @@
 // This is for development purposes only.
 // Use with `npx tsx src/lib/seed.ts`
 
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, setDoc, doc, collection, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { firebaseConfig } from '../firebase/config'; // Adjust the import path as necessary
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { faker } from '@faker-js/faker';
-import type { Property, User, Lease, Payment } from './types';
+import type { Property, User } from './types';
 
 // Initialize Firebase Admin
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
+if (!getApps().length) {
+  initializeApp();
+}
+
+const auth = getAuth();
+const db = getFirestore();
 
 const DEFAULT_PASSWORD = 'password123';
 const NUM_LANDLORDS = 5;
 const NUM_TENANTS = 50;
 const PROPERTIES_PER_LANDLORD = 5;
 
+// From placeholder-images.json
+const availableImageIds = [
+    "img-1", "img-2", "img-3", "img-4", "img-5", "img-6",
+    "img-7", "img-8", "img-9", "img-10", "img-11", "img-12",
+    "img-13", "img-14", "img-15", "img-16", "img-17", "img-18"
+];
+
 async function seedDatabase() {
   console.log('Starting database seed process...');
 
   try {
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // --- Create Landlords ---
     console.log(`Creating ${NUM_LANDLORDS} landlords...`);
-    const landlordIds: string[] = [];
+    const landlordRecords = [];
     for (let i = 0; i < NUM_LANDLORDS; i++) {
       const email = `landlord${i + 1}@example.com`;
       const name = faker.person.fullName();
+      const avatarUrl = faker.image.avatar();
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, DEFAULT_PASSWORD);
-        const userId = userCredential.user.uid;
-        landlordIds.push(userId);
+        const userRecord = await auth.createUser({
+          email,
+          password: DEFAULT_PASSWORD,
+          displayName: name,
+          photoURL: avatarUrl,
+        });
+        landlordRecords.push(userRecord);
 
-        const userDocRef = doc(db, 'users', userId);
-        const userData: Omit<User, 'avatarUrl'> = {
-          id: userId,
-          name: name,
-          email: email,
+        const userDocRef = db.collection('users').doc(userRecord.uid);
+        const userData: User = {
+          id: userRecord.uid,
+          name,
+          email,
           role: 'landlord',
+          avatarUrl,
         };
-        batch.set(userDocRef, { ...userData, createdAt: serverTimestamp() });
-        console.log(`- Created landlord: ${name} (${email})`);
+        batch.set(userDocRef, { ...userData, createdAt: new Date() });
+        console.log(`- Queued landlord: ${name} (${email})`);
       } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-          console.warn(`- Landlord email ${email} already exists. Skipping creation.`);
-          // If you need the UID of the existing user, you'd have to fetch it.
-          // For this script, we'll just skip adding them to our list to process.
+        if (error.code === 'auth/email-already-exists') {
+          console.warn(`- Landlord email ${email} already exists. Fetching existing user.`);
+          const userRecord = await auth.getUserByEmail(email);
+          landlordRecords.push(userRecord);
         } else {
           throw error;
         }
@@ -58,27 +73,35 @@ async function seedDatabase() {
 
     // --- Create Tenants ---
     console.log(`\nCreating ${NUM_TENANTS} tenants...`);
-    const tenantIds: string[] = [];
-     for (let i = 0; i < NUM_TENANTS; i++) {
+    const tenantRecords = [];
+    for (let i = 0; i < NUM_TENANTS; i++) {
       const email = `tenant${i + 1}@example.com`;
       const name = faker.person.fullName();
+      const avatarUrl = faker.image.avatar();
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, DEFAULT_PASSWORD);
-        const userId = userCredential.user.uid;
-        tenantIds.push(userId);
+        const userRecord = await auth.createUser({
+          email,
+          password: DEFAULT_PASSWORD,
+          displayName: name,
+          photoURL: avatarUrl
+        });
+        tenantRecords.push(userRecord);
 
-        const userDocRef = doc(db, 'users', userId);
-         const userData: Omit<User, 'avatarUrl'> = {
-          id: userId,
+        const userDocRef = db.collection('users').doc(userRecord.uid);
+        const userData: User = {
+          id: userRecord.uid,
           name: name,
           email: email,
           role: 'tenant',
+          avatarUrl,
         };
-        batch.set(userDocRef, { ...userData, createdAt: serverTimestamp() });
-        console.log(`- Created tenant: ${name} (${email})`);
+        batch.set(userDocRef, { ...userData, createdAt: new Date() });
+        console.log(`- Queued tenant: ${name} (${email})`);
       } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-          console.warn(`- Tenant email ${email} already exists. Skipping creation.`);
+        if (error.code === 'auth/email-already-exists') {
+          console.warn(`- Tenant email ${email} already exists. Fetching existing user.`);
+           const userRecord = await auth.getUserByEmail(email);
+           tenantRecords.push(userRecord);
         } else {
           throw error;
         }
@@ -86,28 +109,29 @@ async function seedDatabase() {
     }
 
     // --- Create Properties ---
-    console.log(`\nCreating ${PROPERTIES_PER_LANDLORD} properties for each of ${landlordIds.length} landlords...`);
+    console.log(`\nCreating ${PROPERTIES_PER_LANDLORD} properties for each of ${landlordRecords.length} landlords...`);
     const propertyIds: string[] = [];
-    for (const landlordId of landlordIds) {
+    for (const landlord of landlordRecords) {
       for (let i = 0; i < PROPERTIES_PER_LANDLORD; i++) {
-        const propertyDocRef = doc(collection(db, 'properties'));
+        const propertyDocRef = db.collection('properties').doc();
         const propertyId = propertyDocRef.id;
         propertyIds.push(propertyId);
 
-        const propertyData: Omit<Property, 'id' | 'imageIds'> = {
-          landlordId: landlordId,
-          name: `${faker.word.adjective()} ${faker.word.noun()} ${faker.location.streetAddress()}`,
+        const propertyData: Omit<Property, 'id'> = {
+          landlordId: landlord.uid,
+          name: faker.location.streetAddress(),
           price: faker.number.int({ min: 1000, max: 5000 }),
           location: faker.location.city(),
-          address: faker.location.streetAddress(),
-          amenities: faker.helpers.arrayElements(['Gym', 'Pool', 'Parking', 'Pet Friendly', 'In-unit Washer/Dryer'], {min: 2, max: 4}),
+          address: `${faker.location.streetAddress()}, ${faker.location.city()}`,
+          amenities: faker.helpers.arrayElements(['Gym', 'Pool', 'Parking', 'Pet Friendly', 'In-unit Washer/Dryer', 'Rooftop Deck', '24/7 Security'], {min: 2, max: 5}),
           availability: faker.helpers.arrayElement(['available', 'rented']),
           bedrooms: faker.number.int({ min: 1, max: 4 }),
           bathrooms: faker.number.int({ min: 1, max: 3 }),
           size: faker.number.int({ min: 500, max: 2500 }),
+          imageIds: faker.helpers.arrayElements(availableImageIds, { min: 3, max: 6 }),
         };
         batch.set(propertyDocRef, propertyData);
-         console.log(`- Queued property: ${propertyData.name}`);
+        console.log(`- Queued property: ${propertyData.name}`);
       }
     }
     
@@ -119,8 +143,7 @@ async function seedDatabase() {
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {
-    // Firebase connections can be left open, but if you want to explicitly exit:
-    process.exit(0);
+    // The script will exit automatically.
   }
 }
 
