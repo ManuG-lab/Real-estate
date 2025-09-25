@@ -20,10 +20,10 @@ import { doc } from 'firebase/firestore';
 import type { Property, User } from '@/lib/types';
 import Loading from '@/app/loading';
 
-export default function PropertyPage({ params }: { params: { id: string } }) {
+export default function PropertyPage({ params: { id } }: { params: { id: string } }) {
   const { firestore } = useFirebase();
 
-  const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', params.id), [firestore, params.id]);
+  const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', id), [firestore, id]);
   const { data: property, isLoading: propertyLoading } = useDoc<Property>(propertyRef);
 
   const landlordRef = useMemoFirebase(() => 
