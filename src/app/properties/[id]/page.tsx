@@ -1,6 +1,7 @@
+'use client';
+
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { properties, users } from '@/lib/data';
 import { getPlaceholderImages } from '@/lib/placeholder-images';
 import {
   Carousel,
@@ -14,16 +15,33 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RequestViewingForm } from '@/components/request-viewing-form';
 import { MapPin, BedDouble, Bath, Square, Building, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { Property, User } from '@/lib/types';
+import Loading from '@/app/loading';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
-  const property = properties.find((p) => p.id === params.id);
+  const { firestore } = useFirebase();
+
+  const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', params.id), [firestore, params.id]);
+  const { data: property, isLoading: propertyLoading } = useDoc<Property>(propertyRef);
+
+  const landlordRef = useMemoFirebase(() => 
+    property ? doc(firestore, 'users', property.landlordId) : null, 
+    [firestore, property]
+  );
+  const { data: landlord, isLoading: landlordLoading } = useDoc<User>(landlordRef);
+
+  if (propertyLoading || landlordLoading) {
+    return <Loading />;
+  }
 
   if (!property) {
     notFound();
   }
-
-  const landlord = users.find((u) => u.id === property.landlordId);
-  const images = getPlaceholderImages(property.imageIds);
+  
+  // The logic for images needs to be adapted. For now, we use a default if imageIds is missing.
+  const images = getPlaceholderImages(property.imageIds || ['img-1', 'img-2', 'img-3']);
 
   const features = [
     { icon: BedDouble, label: `${property.bedrooms} Bedrooms`},
@@ -31,6 +49,13 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
     { icon: Square, label: `${property.size} sqft`},
     { icon: Building, label: 'Apartment'}
   ];
+  
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '';
+    const names = name.split(' ');
+    return names.map(n => n[0]).join('');
+  }
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -115,7 +140,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                     <CardContent className="flex items-center gap-4">
                         <Avatar className="h-16 w-16">
                             <AvatarImage src={landlord.avatarUrl} alt={landlord.name} />
-                            <AvatarFallback>{landlord.name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>{getInitials(landlord.name)}</AvatarFallback>
                         </Avatar>
                         <div>
                             <p className="font-bold text-lg">{landlord.name}</p>

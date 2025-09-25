@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
@@ -21,7 +21,15 @@ import {
   Wallet,
   Users,
   Bell,
+  LogOut
 } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
+import { useEffect, useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import Loading from '@/app/loading';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const landlordNav = [
   { href: '/dashboard/landlord', label: 'Overview', icon: LayoutDashboard },
@@ -44,7 +52,62 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isLandlord = pathname.startsWith('/dashboard/landlord');
+  const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+
+  useEffect(() => {
+    if (isUserLoading) return;
+
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchUserRole = async () => {
+      setIsRoleLoading(true);
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      if (userDoc.exists()) {
+        const role = userDoc.data().role;
+        setUserRole(role);
+
+        // Redirect if role doesn't match the current dashboard path
+        if (role === 'landlord' && !pathname.startsWith('/dashboard/landlord')) {
+          router.replace('/dashboard/landlord');
+        } else if (role === 'tenant' && !pathname.startsWith('/dashboard/tenant')) {
+          router.replace('/dashboard/tenant');
+        }
+      } else {
+        // Handle case where user exists in Auth but not in Firestore
+        console.error("User document not found in Firestore.");
+        router.push('/login');
+      }
+      setIsRoleLoading(false);
+    };
+
+    fetchUserRole();
+  }, [user, isUserLoading, router, firestore, pathname]);
+
+  const handleLogout = async () => {
+    await auth.signOut();
+    toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out."
+    })
+    router.push('/login');
+  };
+
+  if (isUserLoading || isRoleLoading) {
+    return <Loading />;
+  }
+
+  const isLandlord = userRole === 'landlord';
   const navItems = isLandlord ? landlordNav : tenantNav;
 
   return (
@@ -74,6 +137,12 @@ export default function DashboardLayout({
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
+        </SidebarContent>
+        <SidebarContent className="!flex-grow-0">
+            <Button variant="ghost" className="w-full justify-start" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+            </Button>
         </SidebarContent>
       </Sidebar>
       <SidebarInset>

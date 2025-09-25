@@ -1,7 +1,6 @@
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
       "description": "Represents a user (either landlord or tenant) in the system.",
@@ -14,22 +13,14 @@
           "type": "string",
           "description": "The user's role: 'landlord' or 'tenant'."
         },
-        "firstName": {
+        "name": {
           "type": "string",
-          "description": "The user's first name."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The user's last name."
+          "description": "The user's full name."
         },
         "email": {
           "type": "string",
           "description": "The user's email address.",
           "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The user's phone number."
         },
         "createdAt": {
           "type": "string",
@@ -40,14 +31,12 @@
       "required": [
         "id",
         "role",
-        "firstName",
-        "lastName",
+        "name",
         "email",
         "createdAt"
       ]
     },
     "Property": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Property",
       "type": "object",
       "description": "Represents a rental property.",
@@ -86,7 +75,7 @@
             "type": "string"
           }
         },
-        "availabilityStatus": {
+        "availability": {
           "type": "string",
           "description": "Current availability status of the property (e.g., 'available', 'occupied')."
         },
@@ -101,11 +90,10 @@
         "name",
         "price",
         "location",
-        "availabilityStatus"
+        "availability"
       ]
     },
     "ViewingRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ViewingRequest",
       "type": "object",
       "description": "Represents a viewing request submitted by a user for a property.",
@@ -158,7 +146,6 @@
       ]
     },
     "RentalApplication": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "RentalApplication",
       "type": "object",
       "description": "Represents a rental application submitted by a tenant for a property.",
@@ -198,7 +185,6 @@
       ]
     },
     "Lease": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Lease",
       "type": "object",
       "description": "Represents a lease agreement between a landlord and a tenant for a property.",
@@ -254,7 +240,6 @@
       ]
     },
     "Payment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Payment",
       "type": "object",
       "description": "Represents a rent payment made by a tenant for a lease.",
@@ -301,113 +286,45 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles (landlords and tenants).",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
-        }
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
       },
-      {
-        "path": "/properties/{propertyId}",
-        "definition": {
-          "entityName": "Property",
-          "schema": {
-            "$ref": "#/backend/entities/Property"
-          },
-          "description": "Stores property information. Includes denormalized 'landlordId' for authorization independence.",
-          "params": [
-            {
-              "name": "propertyId",
-              "description": "The unique identifier for the property."
-            }
-          ]
-        }
+      "description": "Stores user profiles (landlords and tenants)."
+    },
+    "/properties/{propertyId}": {
+      "schema": {
+        "$ref": "#/entities/Property"
       },
-      {
-        "path": "/properties/{propertyId}/viewingRequests/{viewingRequestId}",
-        "definition": {
-          "entityName": "ViewingRequest",
-          "schema": {
-            "$ref": "#/backend/entities/ViewingRequest"
-          },
-          "description": "Stores viewing requests for a property. Includes denormalized 'landlordId' for authorization independence.",
-          "params": [
-            {
-              "name": "propertyId",
-              "description": "The unique identifier for the property."
-            },
-            {
-              "name": "viewingRequestId",
-              "description": "The unique identifier for the viewing request."
-            }
-          ]
-        }
+      "description": "Stores property information."
+    },
+    "/properties/{propertyId}/viewingRequests/{viewingRequestId}": {
+      "schema": {
+        "$ref": "#/entities/ViewingRequest"
       },
-      {
-        "path": "/rentalApplications/{rentalApplicationId}",
-        "definition": {
-          "entityName": "RentalApplication",
-          "schema": {
-            "$ref": "#/backend/entities/RentalApplication"
-          },
-          "description": "Stores rental applications submitted by tenants. Includes denormalized 'propertyId' and 'tenantId' for filtering properties.",
-          "params": [
-            {
-              "name": "rentalApplicationId",
-              "description": "The unique identifier for the rental application."
-            }
-          ]
-        }
+      "description": "Stores viewing requests for a property."
+    },
+    "/rentalApplications/{rentalApplicationId}": {
+      "schema": {
+        "$ref": "#/entities/RentalApplication"
       },
-      {
-        "path": "/leases/{leaseId}",
-        "definition": {
-          "entityName": "Lease",
-          "schema": {
-            "$ref": "#/backend/entities/Lease"
-          },
-          "description": "Stores lease agreements. Includes denormalized 'landlordId' and 'tenantId' for filtering properties and authorization independence.",
-          "params": [
-            {
-              "name": "leaseId",
-              "description": "The unique identifier for the lease."
-            }
-          ]
-        }
+      "description": "Stores rental applications submitted by tenants."
+    },
+    "/leases/{leaseId}": {
+      "schema": {
+        "$ref": "#/entities/Lease"
       },
-      {
-        "path": "/payments/{paymentId}",
-        "definition": {
-          "entityName": "Payment",
-          "schema": {
-            "$ref": "#/backend/entities/Payment"
-          },
-          "description": "Stores rent payments.  Denormalizes `leaseId` for authorization purposes.",
-          "params": [
-            {
-              "name": "paymentId",
-              "description": "The unique identifier for the payment."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to support a multi-landlord, multi-tenant real estate and rental management platform. It prioritizes authorization independence and simplifies security rules by denormalizing authorization data. The design adheres to the principle of Structural Segregation to guarantee a homogeneous security posture within collections.\n\n**Authorization Independence:**\n\n*   Authorization independence is achieved by denormalizing authorization-related data. For instance, properties are stored under `/properties/{propertyId}`, and they include the `landlordId`.  This allows rules to check if `request.auth.uid == resource.data.landlordId` without needing to perform a `get()` operation on a parent document.\n\n**QAPs (Rules are not Filters):**\n\n*   Secure list operations (QAPs) are supported by Structural Segregation and Access Modeling. For example:\n\n    *   Landlords can only list properties that they own by querying `/properties` with a `WHERE landlordId == request.auth.uid` clause. Security Rules ensure they can only access documents where the `landlordId` matches their `uid`.\n    *   Tenants can browse all available rentals in the `/properties` collection.\n\n**Role-Based Access Control:**\n\n*   The `users/{userId}` collection stores the user's role (`landlord` or `tenant`). This role is used to determine access to specific features and data.  Since access to `properties` and `viewingRequests` relies on the landlordId, and `RentalApplication` relies on the `tenantId`, the rules can easily validate the user's access based on their `uid`.\n\n**Other Considerations:**\n\n*   Timestamps (`createdAt`, `applicationDate`, `paymentDate`, `startDate`, `endDate`, `requestDate`) are included for audit trails and chronological ordering.\n*   String `status` fields (`availabilityStatus`, `status`) are used instead of booleans to represent state explicitly and prevent implicit state modeling.\n\nThe structure enables simple, robust, and easily debuggable security rules, facilitating a scalable platform for real estate and rental management."
+      "description": "Stores lease agreements."
+    },
+    "/payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/entities/Payment"
+      },
+      "description": "Stores rent payments."
+    }
   }
 }

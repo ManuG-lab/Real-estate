@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -17,19 +19,66 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, CalendarDays, Home, CreditCard, AlertCircle, DollarSign } from 'lucide-react';
-import { leases, payments, properties, applications } from '@/lib/data';
+import { useCollection, useFirebase, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
+import Loading from '@/app/loading';
 import { Separator } from '@/components/ui/separator';
+import type { Lease, Payment, Property, Application } from '@/lib/types';
 
-// Mocking data for a single tenant (ID: 'user-11')
-const MOCK_TENANT_ID = 'user-11';
 
 export default function TenantDashboard() {
-  const tenantLease = leases.find((l) => l.tenantId === MOCK_TENANT_ID && l.signed);
-  const tenantPayments = tenantLease ? payments.filter((p) => p.leaseId === tenantLease.id) : [];
-  const property = tenantLease ? properties.find(p => p.id === tenantLease.propertyId) : null;
-  const tenantApplications = applications.filter(a => a.tenantId === MOCK_TENANT_ID);
+  const { firestore } = useFirebase();
+  const { user, isUserLoading } = useUser();
 
-  const nextPayment = tenantPayments.find(p => p.status === 'pending' || p.status === 'overdue');
+  // Find the active lease for the current tenant
+  const leaseQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'leases'), where('tenantId', '==', user.uid), where('signed', '==', true)) : null, 
+    [firestore, user]
+  );
+  const { data: tenantLeases, isLoading: leaseLoading } = useCollection<Lease>(leaseQuery);
+  const tenantLease = tenantLeases?.[0]; // Assuming one active lease per tenant
+
+  // Get the property associated with the lease
+  const propertyRef = useMemoFirebase(() => 
+    tenantLease ? doc(firestore, 'properties', tenantLease.propertyId) : null,
+    [firestore, tenantLease]
+  );
+  const { data: property, isLoading: propertyLoading } = useDoc<Property>(propertyRef);
+
+  // Get payments for that lease
+  const paymentsQuery = useMemoFirebase(() => 
+    tenantLease ? query(collection(firestore, 'payments'), where('leaseId', '==', tenantLease.id)) : null,
+    [firestore, tenantLease]
+  );
+  const { data: tenantPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+
+  // Get the tenant's applications
+  const applicationsQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'rentalApplications'), where('tenantId', '==', user.uid)) : null,
+    [firestore, user]
+  );
+  const { data: tenantApplications, isLoading: applicationsLoading } = useCollection<Application>(applicationsQuery);
+  
+  // Need all properties to show application details
+  const propertiesQuery = useMemoFirebase(() => 
+    user ? collection(firestore, 'properties') : null,
+    [firestore, user]
+  );
+  const { data: allProperties, isLoading: allPropertiesLoading } = useCollection<Property>(propertiesQuery);
+
+
+  const isLoading = isUserLoading || leaseLoading || propertyLoading || paymentsLoading || applicationsLoading || allPropertiesLoading;
+  
+  if (isLoading) {
+    return <Loading />;
+  }
+
+  const nextPayment = tenantPayments?.find(p => p.status === 'pending' || p.status === 'overdue');
+  const paidPayments = tenantPayments?.filter(p => p.status === 'paid');
+
+  const getPaymentDate = (payment: Payment) => (payment.paymentDate as any)?.toDate ? (payment.paymentDate as any).toDate() : new Date(payment.paymentDate);
+  const getLeaseDate = (lease: Lease, field: 'startDate' | 'endDate') => (lease[field] as any)?.toDate ? (lease[field] as any).toDate() : new Date(lease[field]);
+  const getApplicationDate = (app: Application) => (app.submittedAt as any)?.toDate ? (app.submittedAt as any).toDate() : new Date(app.submittedAt);
 
   return (
     <div className="space-y-6">
@@ -52,7 +101,7 @@ export default function TenantDashboard() {
                     </div>
                      <div>
                         <p className="text-sm text-muted-foreground">Due Date</p>
-                        <p className="text-lg font-semibold">{new Date(nextPayment.paymentDate).toLocaleDateString()}</p>
+                        <p className="text-lg font-semibold">{getPaymentDate(nextPayment).toLocaleDateString()}</p>
                     </div>
                     <Button size="lg" className="w-full md:w-auto md:justify-self-end bg-accent hover:bg-accent/90 text-accent-foreground">
                         <CreditCard className="mr-2 h-5 w-5"/>
@@ -78,16 +127,22 @@ export default function TenantDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantPayments.filter(p => p.status === 'paid').slice(0, 5).map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">{property?.name}</TableCell>
-                      <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge className="capitalize">{payment.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {paidPayments && paidPayments.length > 0 ? (
+                    paidPayments.slice(0, 5).map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{getPaymentDate(payment).toLocaleDateString()}</TableCell>
+                        <TableCell className="font-medium">{property?.name}</TableCell>
+                        <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge className="capitalize">{payment.status}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                     <TableRow>
+                        <TableCell colSpan={4} className="text-center">No paid payments found.</TableCell>
+                     </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -114,7 +169,7 @@ export default function TenantDashboard() {
                   <div>
                     <p className="text-sm text-muted-foreground">Lease Period</p>
                     <p className="font-semibold">
-                      {new Date(tenantLease.startDate).toLocaleDateString()} - {new Date(tenantLease.endDate).toLocaleDateString()}
+                      {getLeaseDate(tenantLease, 'startDate').toLocaleDateString()} - {getLeaseDate(tenantLease, 'endDate').toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -153,31 +208,35 @@ export default function TenantDashboard() {
               <CardTitle className="font-headline">My Applications</CardTitle>
             </CardHeader>
             <CardContent>
-                <ul className="space-y-4">
-                {tenantApplications.slice(0,3).map(app => {
-                    const appProperty = properties.find(p => p.id === app.propertyId);
-                    return (
-                        <li key={app.id} className="flex items-center justify-between">
-                            <div>
-                                <p className="font-semibold">{appProperty?.name}</p>
-                                <p className="text-sm text-muted-foreground">Applied: {new Date(app.submittedAt).toLocaleDateString()}</p>
-                            </div>
-                            <Badge
-                                variant={
-                                app.status === 'approved'
-                                    ? 'default'
-                                    : app.status === 'declined'
-                                    ? 'destructive'
-                                    : 'secondary'
-                                }
-                                className="capitalize"
-                            >
-                                {app.status}
-                            </Badge>
-                        </li>
-                    )
-                })}
-                </ul>
+                {tenantApplications && tenantApplications.length > 0 ? (
+                    <ul className="space-y-4">
+                    {tenantApplications.slice(0,3).map(app => {
+                        const appProperty = allProperties?.find(p => p.id === app.propertyId);
+                        return (
+                            <li key={app.id} className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-semibold">{appProperty?.name}</p>
+                                    <p className="text-sm text-muted-foreground">Applied: {getApplicationDate(app).toLocaleDateString()}</p>
+                                </div>
+                                <Badge
+                                    variant={
+                                    app.status === 'approved'
+                                        ? 'default'
+                                        : app.status === 'declined'
+                                        ? 'destructive'
+                                        : 'secondary'
+                                    }
+                                    className="capitalize"
+                                >
+                                    {app.status}
+                                </Badge>
+                            </li>
+                        )
+                    })}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center">No applications found.</p>
+                )}
             </CardContent>
           </Card>
         </div>

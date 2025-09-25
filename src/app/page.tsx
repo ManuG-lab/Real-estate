@@ -1,12 +1,25 @@
-import { properties } from '@/lib/data';
+'use client';
+
+import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { PropertyCard } from '@/components/property-card';
 import { PropertyFilters } from '@/components/property-filters';
 import { AiSuggester } from '@/components/ai-suggester';
+import { collection, query, where } from 'firebase/firestore';
+import type { Property } from '@/lib/types';
+import Loading from './loading';
 
 export default function Home() {
-  const availableProperties = properties.filter(
-    (p) => p.availability === 'available'
+  const { firestore } = useFirebase();
+
+  const propertiesQuery = useMemoFirebase(
+    () => query(collection(firestore, 'properties'), where('availability', '==', 'available')),
+    [firestore]
   );
+  const { data: availableProperties, isLoading } = useCollection<Property>(propertiesQuery);
+
+  if (isLoading) {
+    return <Loading />;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -31,11 +44,17 @@ export default function Home() {
         <h2 className="font-headline text-3xl font-semibold mb-6">
           Available Rentals
         </h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {availableProperties.map((property) => (
-            <PropertyCard key={property.id} property={property} />
-          ))}
-        </div>
+        {availableProperties && availableProperties.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {availableProperties.map((property) => (
+              <PropertyCard key={property.id} property={property} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-12">
+            <p>No available properties at the moment. Please check back later!</p>
+          </div>
+        )}
       </section>
     </div>
   );

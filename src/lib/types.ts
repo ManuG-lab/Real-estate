@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  avatarUrl: string;
+  avatarUrl?: string; // Made optional
 }
 
 export interface Amenity {

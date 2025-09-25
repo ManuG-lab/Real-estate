@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -15,38 +17,64 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Building2, DollarSign, Users, CalendarClock } from 'lucide-react';
-import { properties, payments, viewingRequests, users, leases } from '@/lib/data';
-
-// Mocking data for a single landlord (ID: 'user-1')
-const MOCK_LANDLORD_ID = 'user-1';
+import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import Loading from '@/app/loading';
+import type { Property, Payment, ViewingRequest, Lease, User } from '@/lib/types';
 
 export default function LandlordDashboard() {
-  const landlordProperties = properties.filter(
-    (p) => p.landlordId === MOCK_LANDLORD_ID
-  );
-  const propertyIds = landlordProperties.map((p) => p.id);
-  
-  const landlordLeases = leases.filter(l => propertyIds.includes(l.propertyId));
-  const leaseIds = landlordLeases.map(l => l.id);
+  const { firestore } = useFirebase();
+  const { user, isUserLoading } = useUser();
 
-  const landlordPayments = payments.filter((p) => leaseIds.includes(p.leaseId));
-  const landlordViewingRequests = viewingRequests.filter((vr) =>
-    propertyIds.includes(vr.propertyId)
-  );
+  const propertiesQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'properties'), where('landlordId', '==', user.uid)) : null
+  , [firestore, user]);
+  const { data: landlordProperties, isLoading: propertiesLoading } = useCollection<Property>(propertiesQuery);
+  
+  const propertyIds = landlordProperties?.map((p) => p.id) || [];
+
+  const leasesQuery = useMemoFirebase(() => 
+    user && propertyIds.length > 0 ? query(collection(firestore, 'leases'), where('propertyId', 'in', propertyIds)) : null
+  , [firestore, user, landlordProperties]);
+  const { data: landlordLeases, isLoading: leasesLoading } = useCollection<Lease>(leasesQuery);
+
+  const leaseIds = landlordLeases?.map((l) => l.id) || [];
+
+  const paymentsQuery = useMemoFirebase(() => 
+    user && leaseIds.length > 0 ? query(collection(firestore, 'payments'), where('leaseId', 'in', leaseIds)) : null
+  , [firestore, user, landlordLeases]);
+  const { data: landlordPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  
+  const requestsQuery = useMemoFirebase(() =>
+    user && propertyIds.length > 0 ? query(collection(firestore, 'viewingRequests'), where('propertyId', 'in', propertyIds)) : null
+  , [firestore, user, landlordProperties]);
+  const { data: landlordViewingRequests, isLoading: requestsLoading } = useCollection<ViewingRequest>(requestsQuery);
+
+  // We need to fetch all tenants to display their names
+  const tenantsQuery = useMemoFirebase(() => 
+    user ? query(collection(firestore, 'users'), where('role', '==', 'tenant')) : null
+  , [firestore, user]);
+  const { data: tenants, isLoading: tenantsLoading } = useCollection<User>(tenantsQuery);
+
+
+  const isLoading = isUserLoading || propertiesLoading || leasesLoading || paymentsLoading || requestsLoading || tenantsLoading;
+
+  if (isLoading) {
+    return <Loading />;
+  }
 
   const totalIncome = landlordPayments
-    .filter((p) => p.status === 'paid')
-    .reduce((sum, p) => sum + p.amount, 0);
+    ?.filter((p) => p.status === 'paid')
+    .reduce((sum, p) => sum + p.amount, 0) || 0;
   
-  const pendingRequests = landlordViewingRequests.filter(vr => vr.status === 'pending').length;
+  const pendingRequests = landlordViewingRequests?.filter(vr => vr.status === 'pending').length || 0;
   
-  const overduePayments = landlordPayments.filter(p => p.status === 'overdue').length;
-
+  const overduePayments = landlordPayments?.filter(p => p.status === 'overdue').length || 0;
 
   const summaryCards = [
     {
       title: 'Total Properties',
-      value: landlordProperties.length,
+      value: landlordProperties?.length || 0,
       icon: Building2,
       description: 'Properties you manage',
     },
@@ -106,34 +134,43 @@ export default function LandlordDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {landlordPayments.slice(0, 5).map((payment) => {
-                const lease = landlordLeases.find((l) => l.id === payment.leaseId);
-                const tenant = users.find((u) => u.id === lease?.tenantId);
-                const property = properties.find((p) => p.id === lease?.propertyId);
+              {landlordPayments && landlordPayments.length > 0 ? (
+                landlordPayments.slice(0, 5).map((payment) => {
+                  const lease = landlordLeases?.find((l) => l.id === payment.leaseId);
+                  const tenant = tenants?.find((u) => u.id === lease?.tenantId);
+                  const property = landlordProperties?.find((p) => p.id === lease?.propertyId);
 
-                return (
-                  <TableRow key={payment.id}>
-                    <TableCell className="font-medium">{tenant?.name || 'N/A'}</TableCell>
-                    <TableCell>{property?.name || 'N/A'}</TableCell>
-                    <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
-                    <TableCell>{new Date(payment.paymentDate).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          payment.status === 'paid'
-                            ? 'default'
-                            : payment.status === 'overdue'
-                            ? 'destructive'
-                            : 'secondary'
-                        }
-                        className="capitalize"
-                      >
-                        {payment.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                  // Firestore timestamps need to be converted to JS Dates
+                  const paymentDate = (payment.paymentDate as any)?.toDate ? (payment.paymentDate as any).toDate() : new Date(payment.paymentDate);
+
+                  return (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">{tenant?.name || 'N/A'}</TableCell>
+                      <TableCell>{property?.name || 'N/A'}</TableCell>
+                      <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
+                      <TableCell>{paymentDate.toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            payment.status === 'paid'
+                              ? 'default'
+                              : payment.status === 'overdue'
+                              ? 'destructive'
+                              : 'secondary'
+                          }
+                          className="capitalize"
+                        >
+                          {payment.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">No payments found.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

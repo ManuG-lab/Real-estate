@@ -17,6 +17,7 @@ import { getAiSuggestions } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { Property } from '@/lib/types';
 import { PropertyCard } from './property-card';
+import { useUser } from '@/firebase';
 
 export function AiSuggester() {
   const [open, setOpen] = useState(false);
@@ -24,10 +25,12 @@ export function AiSuggester() {
   const [suggestions, setSuggestions] = useState<Property[]>([]);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const handleSubmit = async () => {
     startTransition(async () => {
       // Mock viewing history as per project requirements
+      // In a real app, this would come from the user's profile
       const viewingHistory = ['prop-1', 'prop-5', 'prop-12'];
       const result = await getAiSuggestions(preferences, viewingHistory);
       if (result.error) {
@@ -55,6 +58,9 @@ export function AiSuggester() {
         setPreferences('');
     }
   }
+
+  // Only show the AI suggester to logged-in users (tenants)
+  if (!user) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
