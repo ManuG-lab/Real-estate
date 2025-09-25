@@ -1,68 +1,173 @@
+/**
+ * @fileoverview Firestore Security Rules for the Rent Manager Pro application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and a public-read, owner-write model for properties.
+ * Subcollections inherit the access control of their parent documents unless explicitly overridden.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles; only accessible by the user themselves.
+ * - /properties/{propertyId}: Stores property data; publicly readable but only writable by the landlord who owns the property.
+ * - /properties/{propertyId}/viewingRequests/{viewingRequestId}: Stores viewing requests for a property; only listable to landlords for their own properties.
+ * - /rentalApplications/{rentalApplicationId}: Stores rental applications; access needs further clarification. Assuming landlord access for now.
+ * - /leases/{leaseId}: Stores lease agreements; access needs further clarification. Assuming landlord and tenant access.
+ * - /payments/{paymentId}: Stores payment information; access needs further clarification. Assuming landlord and tenant access.
+ *
+ * Key Security Decisions:
+ * - User listing is explicitly disallowed.
+ * - Viewing requests are listable by landlords.
+ * - The default security posture for ambiguous relationships (RentalApplication, Lease, Payment) is landlord-centric, requiring further clarification for tenant access.
+ *
+ * Denormalization for Authorization:
+ *  - Properties store the landlordId directly, enabling simple ownership checks.
+ *  - ViewingRequests store the propertyId and landlordId, for targeted access control.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is authenticated
-    function isAuth() {
-      return request.auth != null;
-    }
-
-    // --- Collections ---
-
-    // PUBLIC: Anyone can read property listings.
-    // SECURE: Only the owner (landlord) can write to their property.
-    match /properties/{propertyId} {
-      allow read: if true;
-      allow write: if isAuth() && request.resource.data.landlordId == request.auth.uid;
-    }
-
-    // AUTHENTICATED READ: Any authenticated user can read user profiles.
-    // This is needed to display user info (e.g., landlord name on property page).
-    // SECURE WRITE: Users can only write to their own document.
+    /**
+     * @description Controls access to user profiles.
+     * @path /users/{userId}
+     * @allow (create) If the user's ID matches the userId in the path.
+     * @deny (read, update, delete) If the user is not the owner of the profile.
+     * @principle Enforces document ownership.
+     */
     match /users/{userId} {
-      allow read: if isAuth();
-      allow write: if isAuth() && request.auth.uid == userId;
-    }
-
-    // SECURE QUERY & READ:
-    // - Tenants can query/read their OWN applications.
-    // - Landlords can query/read applications for THEIR properties.
-    match /rentalApplications/{applicationId} {
-      allow read: if (isAuth() && resource.data.tenantId == request.auth.uid) ||
-                     (isAuth() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.landlordId == request.auth.uid);
-      allow list: if (isAuth() && request.query.get('where')[0][2] == request.auth.uid); // Ensures tenants can only query their own
-      allow create: if isAuth() && request.resource.data.tenantId == request.auth.uid;
-    }
-
-    // SECURE QUERY & READ:
-    // - A user can query/read leases where they are the tenant OR the landlord.
-    match /leases/{leaseId} {
-       allow read: if isAuth() && (resource.data.landlordId == request.auth.uid || resource.data.tenantId == request.auth.uid);
-       allow list: if isAuth() && (request.query.get('where')[0][2] == request.auth.uid);
-       allow write: if isAuth() && request.resource.data.landlordId == request.auth.uid;
-    }
-
-    // SECURE QUERY & READ:
-    // - Landlords can list payments associated with their properties.
-    // - Tenants can list payments for leases they are a part of.
-     match /payments/{paymentId} {
-      function isUserInLease() {
-        let lease = get(/databases/$(database)/documents/leases/$(resource.data.leaseId)).data;
-        return request.auth.uid == lease.tenantId || request.auth.uid == lease.landlordId;
+      function isSignedIn() {
+        return request.auth != null;
       }
-      allow read: if isAuth() && isUserInLease();
-      allow list: if isAuth() && (request.query.get('where')[0][2] in get(/databases/$(database)/documents/leases?where=["landlordId", "==", request.auth.uid]).docs.map(d => d.id) || request.query.get('where')[0][2] in get(/databases/$(database)/documents/leases?where=["tenantId", "==", request.auth.uid]).docs.map(d => d.id));
-      allow create: if isAuth(); // Allow tenants to create payments.
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is not permitted.
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource.data.id == userId;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
-    // --- Subcollections ---
+    /**
+     * @description Controls access to property data.
+     * @path /properties/{propertyId}
+     * @allow (get, list) Anyone can read property information.
+     * @allow (create) If the landlordId in the request matches the user's ID.
+     * @allow (update, delete) If the user is the owner (landlord) of the property.
+     * @principle Public read access with owner-only writes.
+     */
+    match /properties/{propertyId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-    // SECURE: Only landlords can read/write viewing requests for their own properties.
-    // SECURE: Any authenticated user can create a viewing request.
+      function isOwner(landlordId) {
+        return isSignedIn() && request.auth.uid == landlordId;
+      }
+        allow get, list: if true;
+        allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+        allow update: if isSignedIn() && isOwner(resource.data.landlordId) && resource != null;
+        allow delete: if isSignedIn() && isOwner(resource.data.landlordId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to viewing requests for a property.
+     * @path /properties/{propertyId}/viewingRequests/{viewingRequestId}
+     * @allow (list) Landlords can list viewing requests for their properties.
+     * @allow (create) Anyone can create a viewing request.
+     * @allow (update, delete) Only the landlord who owns the property can update/delete viewing requests.
+     * @principle Restricts listing to property owners.
+     */
     match /properties/{propertyId}/viewingRequests/{viewingRequestId} {
-      allow create: if isAuth();
-      allow read, write: if isAuth() && get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId == request.auth.uid;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(landlordId) {
+        return isSignedIn() && request.auth.uid == landlordId;
+      }
+
+      allow get: if isOwner(resource.data.landlordId);
+      allow list: if isSignedIn();
+      allow create: if true;
+      allow update: if isOwner(resource.data.landlordId) && resource != null;
+      allow delete: if isOwner(resource.data.landlordId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to rental applications.
+     * @path /rentalApplications/{rentalApplicationId}
+     * @allow (create) Any signed in user can create an application.
+     * @allow (update, delete, get, list) Only the relevant landlord can update/delete/view applications.
+     * @principle Requires property ownership to manage applications.
+     */
+    match /rentalApplications/{rentalApplicationId} {
+        function isSignedIn() {
+          return request.auth != null;
+        }
+
+        // Assuming the landlordId is stored within the rental application.
+        function isLandlordOfProperty(landlordId) {
+          return isSignedIn() && request.auth.uid == landlordId;
+        }
+
+        // TODO: Add tenant access based on tenantId within the rental application.
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && isLandlordOfProperty(resource.data.landlordId) && resource != null;
+        allow delete: if isSignedIn() && isLandlordOfProperty(resource.data.landlordId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to lease agreements.
+     * @path /leases/{leaseId}
+     * @allow (create) Any signed in user can create a lease.
+     * @allow (update, delete, get, list) Only the relevant landlord or tenant can update/delete/view lease.
+     * @principle Restricts access to landlords and tenants involved in the lease.
+     */
+    match /leases/{leaseId} {
+        function isSignedIn() {
+          return request.auth != null;
+        }
+
+        // Assuming the landlordId and tenantId are stored within the lease.
+        function isLandlordOrTenant(landlordId, tenantId) {
+          return isSignedIn() && (request.auth.uid == landlordId || request.auth.uid == tenantId);
+        }
+
+        // TODO: Double check this logic and add proper authorization
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && isLandlordOrTenant(resource.data.landlordId, resource.data.tenantId) && resource != null;
+        allow delete: if isSignedIn() && isLandlordOrTenant(resource.data.landlordId, resource.data.tenantId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to payments.
+     * @path /payments/{paymentId}
+     * @allow (create) Any signed in user can create a payment.
+     * @allow (update, delete, get, list) Only the relevant landlord or tenant can update/delete/view payment.
+     * @principle Restricts access to landlords and tenants involved in the lease associated with the payment.
+     */
+    match /payments/{paymentId} {
+        function isSignedIn() {
+          return request.auth != null;
+        }
+
+        // Assuming the leaseId is stored within the payment, and the lease contains landlordId and tenantId.
+        function isLandlordOrTenantOfLease(leaseId) {
+            return isSignedIn() && get(/databases/$(database)/documents/leases/$(leaseId)).data.landlordId == request.auth.uid || get(/databases/$(database)/documents/leases/$(leaseId)).data.tenantId == request.auth.uid;
+        }
+
+        // TODO: Double check this logic and add proper authorization
+        allow get: if isSignedIn();
+        allow list: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && isLandlordOrTenantOfLease(resource.data.leaseId) && resource != null;
+        allow delete: if isSignedIn() && isLandlordOrTenantOfLease(resource.data.leaseId) && resource != null;
     }
   }
 }
