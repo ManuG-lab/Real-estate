@@ -20,7 +20,9 @@ import {
   FileText,
   Wallet,
   Users,
-  LogOut
+  LogOut,
+  User,
+  CalendarClock
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -33,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 const landlordNav = [
   { href: '/dashboard/landlord', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/landlord/properties', label: 'Properties', icon: Building2 },
+  { href: '/dashboard/landlord/tenants', label: 'Tenants', icon: User },
   { href: '/dashboard/landlord/requests', label: 'Viewing Requests', icon: Users },
   { href: '/dashboard/landlord/leases', label: 'Leases', icon: FileText },
   { href: '/dashboard/landlord/payments', label: 'Payments', icon: Wallet },
