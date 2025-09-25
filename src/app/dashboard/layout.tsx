@@ -20,7 +20,6 @@ import {
   FileText,
   Wallet,
   Users,
-  Bell,
   LogOut
 } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
