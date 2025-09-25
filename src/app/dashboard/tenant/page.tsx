@@ -20,17 +20,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, CalendarDays, Home, CreditCard, AlertCircle, DollarSign } from 'lucide-react';
 import { useCollection, useFirebase, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import { Separator } from '@/components/ui/separator';
 import type { Lease, Payment, Property, Application } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 // A custom hook to fetch multiple documents by their IDs from a collection.
 const useProperties = (propertyIds: string[]) => {
     const { firestore } = useFirebase();
     const [properties, setProperties] = useState<Record<string, Property>>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    const stablePropertyIds = useMemo(() => propertyIds.sort().join(','), [propertyIds]);
 
     useEffect(() => {
         if (!firestore || propertyIds.length === 0) {
@@ -41,25 +43,33 @@ const useProperties = (propertyIds: string[]) => {
         const fetchProperties = async () => {
             setIsLoading(true);
             const newProperties: Record<string, Property> = {};
-            const q = query(collection(firestore, 'properties'), where('id', 'in', propertyIds));
-            
-            const { getDocs } = await import('firebase/firestore');
-            try {
-                const querySnapshot = await getDocs(q);
-                querySnapshot.forEach((docSnap) => {
+            const propertyPromises = propertyIds.map(async (id) => {
+                try {
+                    const propDocRef = doc(firestore, 'properties', id);
+                    const docSnap = await getDoc(propDocRef);
                     if (docSnap.exists()) {
-                        newProperties[docSnap.id] = { id: docSnap.id, ...docSnap.data() } as Property;
+                        return { id: docSnap.id, ...docSnap.data() } as Property;
                     }
-                });
-                setProperties(newProperties);
-            } catch (error) {
-                console.error("Error fetching property documents:", error);
-            }
+                } catch (error) {
+                    console.error(`Error fetching property document for ID ${id}:`, error);
+                }
+                return null;
+            });
+            
+            const resolvedProperties = await Promise.all(propertyPromises);
+
+            resolvedProperties.forEach(prop => {
+                if (prop) {
+                    newProperties[prop.id] = prop;
+                }
+            });
+
+            setProperties(newProperties);
             setIsLoading(false);
         };
 
         fetchProperties();
-    }, [firestore, propertyIds]);
+    }, [firestore, stablePropertyIds]);
 
     return { properties, isLoading: isLoading };
 }
@@ -98,8 +108,8 @@ export default function TenantDashboard() {
   const { data: tenantApplications, isLoading: applicationsLoading } = useCollection<Application>(applicationsQuery);
   
   // Get all unique property IDs from the applications
-  const applicationPropertyIds = useMemoFirebase(() =>
-    [...new Set(tenantApplications?.map(app => app.propertyId) || [])]
+  const applicationPropertyIds = useMemo(() =>
+    Array.from(new Set(tenantApplications?.map(app => app.propertyId) || []))
   , [tenantApplications]);
 
   // Fetch the property documents for all applications
