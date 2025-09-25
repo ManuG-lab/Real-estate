@@ -22,7 +22,8 @@ import type { Property, User } from '@/lib/types';
 import Loading from '@/app/loading';
 import React from 'react';
 
-export default function PropertyPage({ params: { id } }: { params: { id: string } }) {
+export default function PropertyPage({ params }: { params: { id: string } }) {
+  const { id } = React.use(params);
   const { firestore } = useFirebase();
 
   const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', id), [firestore, id]);
