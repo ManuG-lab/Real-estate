@@ -19,10 +19,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState } from 'react';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { useUser } from '@/firebase';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -34,22 +40,69 @@ const formSchema = z.object({
 
 export function RequestViewingForm({ propertyId, landlordId }: { propertyId: string; landlordId: string }) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
-      contact: '',
+      name: user?.displayName || '',
+      contact: user?.email || '',
     },
   });
+  
+  // Set default values if user is available
+  React.useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.displayName || '',
+        contact: user.email || '',
+      });
+    }
+  }, [user, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real app, you would send this data to your backend/API
-    console.log({ ...values, propertyId, landlordId });
-    toast({
-      title: 'Request Sent!',
-      description: 'The landlord has been notified. They will contact you shortly.',
-    });
-    form.reset();
+    setIsSubmitting(true);
+    const viewingRequestsRef = collection(firestore, `properties/${propertyId}/viewingRequests`);
+    const newRequest = {
+      ...values,
+      propertyId,
+      landlordId,
+      status: 'pending',
+      requestDate: serverTimestamp(),
+      userId: user?.uid || null, // Add user ID to the request
+    };
+
+    addDoc(viewingRequestsRef, newRequest)
+      .then(() => {
+        toast({
+          title: 'Request Sent!',
+          description: 'The landlord has been notified. They will contact you shortly.',
+        });
+        form.reset();
+      })
+      .catch((error) => {
+        console.error("Failed to send request:", error);
+        
+        // Create and emit the contextual error
+        const permissionError = new FirestorePermissionError({
+            path: `properties/${propertyId}/viewingRequests`,
+            operation: 'create',
+            requestResourceData: newRequest
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+        // Also show a generic error to the user
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description: 'Could not send viewing request. Please try again.',
+        });
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   }
 
   return (
@@ -62,7 +115,7 @@ export function RequestViewingForm({ propertyId, landlordId }: { propertyId: str
             <FormItem>
               <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="John Doe" {...field} disabled={isSubmitting || !!user?.displayName} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -75,7 +128,7 @@ export function RequestViewingForm({ propertyId, landlordId }: { propertyId: str
             <FormItem>
               <FormLabel>Email or Phone</FormLabel>
               <FormControl>
-                <Input placeholder="john.doe@example.com" {...field} />
+                <Input placeholder="john.doe@example.com" {...field} disabled={isSubmitting || !!user?.email}/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -96,6 +149,7 @@ export function RequestViewingForm({ propertyId, landlordId }: { propertyId: str
                         'w-full pl-3 text-left font-normal',
                         !field.value && 'text-muted-foreground'
                       )}
+                       disabled={isSubmitting}
                     >
                       {field.value ? (
                         format(field.value, 'PPP')
@@ -122,7 +176,16 @@ export function RequestViewingForm({ propertyId, landlordId }: { propertyId: str
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">Submit Request</Button>
+        <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
+             {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              'Submit Request'
+            )}
+        </Button>
       </form>
     </Form>
   );
