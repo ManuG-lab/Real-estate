@@ -1,3 +1,4 @@
+
 'use client';
 
 import { notFound } from 'next/navigation';
@@ -22,7 +23,7 @@ import Loading from '@/app/loading';
 import React from 'react';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
-  const { id } = React.use(params);
+  const { id } = params;
   const { firestore } = useFirebase();
 
   const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', id), [firestore, id]);
@@ -42,7 +43,6 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
     notFound();
   }
   
-  // The logic for images needs to be adapted. For now, we use a default if imageIds is missing.
   const images = getPlaceholderImages(property.imageIds || ['img-1', 'img-2', 'img-3']);
 
   const features = [
