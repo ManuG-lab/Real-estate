@@ -17,10 +17,55 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Building2, DollarSign, Users, CalendarClock } from 'lucide-react';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { Property, Payment, ViewingRequest, Lease, User } from '@/lib/types';
+import { useEffect, useState } from 'react';
+
+// A custom hook to fetch multiple documents by their IDs from a collection.
+const useUsers = (userIds: string[]) => {
+    const { firestore } = useFirebase();
+    const [users, setUsers] = useState<Record<string, User>>({});
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!firestore || userIds.length === 0) {
+            setUsers({});
+            return;
+        };
+
+        const fetchUsers = async () => {
+            setIsLoading(true);
+            const newUsers: Record<string, User> = {};
+            // Firestore 'in' queries are limited to 30 items. 
+            // If you expect more, you'd need to batch this.
+            const q = query(collection(firestore, 'users'), where('id', 'in', userIds));
+            
+            // This is not a realtime listener, just a one-time fetch.
+            // We use a separate pattern to avoid infinite loops with useCollection on dynamic IDs.
+            const { getDocs } = await import('firebase/firestore');
+            try {
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach((docSnap) => {
+                    if (docSnap.exists()) {
+                        newUsers[docSnap.id] = { id: docSnap.id, ...docSnap.data() } as User;
+                    }
+                });
+                setUsers(newUsers);
+            } catch (error) {
+                console.error("Error fetching user documents:", error);
+                // In a real app, you might want to handle this error more gracefully
+            }
+            setIsLoading(false);
+        };
+
+        fetchUsers();
+    }, [firestore, userIds]); // Re-run only if firestore or the list of IDs changes.
+
+    return { users, isLoading: isLoading };
+}
+
 
 export default function LandlordDashboard() {
   const { firestore } = useFirebase();
@@ -38,6 +83,14 @@ export default function LandlordDashboard() {
   , [firestore, user, landlordProperties]);
   const { data: landlordLeases, isLoading: leasesLoading } = useCollection<Lease>(leasesQuery);
 
+  // Get all unique tenant IDs from the leases
+  const tenantIds = useMemoFirebase(() => 
+    [...new Set(landlordLeases?.map(l => l.tenantId) || [])]
+  , [landlordLeases]);
+  
+  // Fetch the user documents for all tenants
+  const { users: tenants, isLoading: tenantsLoading } = useUsers(tenantIds as string[]);
+
   const leaseIds = landlordLeases?.map((l) => l.id) || [];
 
   const paymentsQuery = useMemoFirebase(() => 
@@ -49,13 +102,6 @@ export default function LandlordDashboard() {
     user && propertyIds.length > 0 ? query(collection(firestore, 'viewingRequests'), where('propertyId', 'in', propertyIds)) : null
   , [firestore, user, landlordProperties]);
   const { data: landlordViewingRequests, isLoading: requestsLoading } = useCollection<ViewingRequest>(requestsQuery);
-
-  // We need to fetch all tenants to display their names
-  const tenantsQuery = useMemoFirebase(() => 
-    user ? query(collection(firestore, 'users'), where('role', '==', 'tenant')) : null
-  , [firestore, user]);
-  const { data: tenants, isLoading: tenantsLoading } = useCollection<User>(tenantsQuery);
-
 
   const isLoading = isUserLoading || propertiesLoading || leasesLoading || paymentsLoading || requestsLoading || tenantsLoading;
 
@@ -137,7 +183,8 @@ export default function LandlordDashboard() {
               {landlordPayments && landlordPayments.length > 0 ? (
                 landlordPayments.slice(0, 5).map((payment) => {
                   const lease = landlordLeases?.find((l) => l.id === payment.leaseId);
-                  const tenant = tenants?.find((u) => u.id === lease?.tenantId);
+                  // Now look up the tenant from our fetched tenants map
+                  const tenant = lease ? tenants[lease.tenantId] : undefined;
                   const property = landlordProperties?.find((p) => p.id === lease?.propertyId);
 
                   // Firestore timestamps need to be converted to JS Dates

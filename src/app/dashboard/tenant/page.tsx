@@ -24,7 +24,45 @@ import { collection, query, where, doc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import { Separator } from '@/components/ui/separator';
 import type { Lease, Payment, Property, Application } from '@/lib/types';
+import { useState, useEffect } from 'react';
 
+// A custom hook to fetch multiple documents by their IDs from a collection.
+const useProperties = (propertyIds: string[]) => {
+    const { firestore } = useFirebase();
+    const [properties, setProperties] = useState<Record<string, Property>>({});
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!firestore || propertyIds.length === 0) {
+            setProperties({});
+            return;
+        };
+
+        const fetchProperties = async () => {
+            setIsLoading(true);
+            const newProperties: Record<string, Property> = {};
+            const q = query(collection(firestore, 'properties'), where('id', 'in', propertyIds));
+            
+            const { getDocs } = await import('firebase/firestore');
+            try {
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach((docSnap) => {
+                    if (docSnap.exists()) {
+                        newProperties[docSnap.id] = { id: docSnap.id, ...docSnap.data() } as Property;
+                    }
+                });
+                setProperties(newProperties);
+            } catch (error) {
+                console.error("Error fetching property documents:", error);
+            }
+            setIsLoading(false);
+        };
+
+        fetchProperties();
+    }, [firestore, propertyIds]);
+
+    return { properties, isLoading: isLoading };
+}
 
 export default function TenantDashboard() {
   const { firestore } = useFirebase();
@@ -59,12 +97,13 @@ export default function TenantDashboard() {
   );
   const { data: tenantApplications, isLoading: applicationsLoading } = useCollection<Application>(applicationsQuery);
   
-  // Need all properties to show application details
-  const propertiesQuery = useMemoFirebase(() => 
-    user ? collection(firestore, 'properties') : null,
-    [firestore, user]
-  );
-  const { data: allProperties, isLoading: allPropertiesLoading } = useCollection<Property>(propertiesQuery);
+  // Get all unique property IDs from the applications
+  const applicationPropertyIds = useMemoFirebase(() =>
+    [...new Set(tenantApplications?.map(app => app.propertyId) || [])]
+  , [tenantApplications]);
+
+  // Fetch the property documents for all applications
+  const { properties: allProperties, isLoading: allPropertiesLoading } = useProperties(applicationPropertyIds as string[]);
 
 
   const isLoading = isUserLoading || leaseLoading || propertyLoading || paymentsLoading || applicationsLoading || allPropertiesLoading;
@@ -211,11 +250,11 @@ export default function TenantDashboard() {
                 {tenantApplications && tenantApplications.length > 0 ? (
                     <ul className="space-y-4">
                     {tenantApplications.slice(0,3).map(app => {
-                        const appProperty = allProperties?.find(p => p.id === app.propertyId);
+                        const appProperty = allProperties[app.propertyId];
                         return (
                             <li key={app.id} className="flex items-center justify-between">
                                 <div>
-                                    <p className="font-semibold">{appProperty?.name}</p>
+                                    <p className="font-semibold">{appProperty?.name || 'Loading...'}</p>
                                     <p className="text-sm text-muted-foreground">Applied: {getApplicationDate(app).toLocaleDateString()}</p>
                                 </div>
                                 <Badge
