@@ -1,3 +1,4 @@
+
 export type UserRole = 'landlord' | 'tenant';
 
 export interface User {
@@ -5,12 +6,13 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  avatarUrl?: string; // Made optional
+  avatarUrl?: string;
+  createdAt?: Date;
 }
 
 export interface Amenity {
   id: string;
-  name: string;
+  name:string;
 }
 
 export interface Property {
@@ -64,3 +66,5 @@ export interface Payment {
   paymentDate: Date;
   status: 'paid' | 'pending' | 'overdue';
 }
+
+    
