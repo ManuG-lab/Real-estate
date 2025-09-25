@@ -1,21 +1,24 @@
 'use server';
 
 import { suggestProperties } from '@/ai/flows/ai-property-suggestions';
-import { Property } from '@/lib/types';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import type { Property } from '@/lib/types';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { firebaseConfig } from '@/firebase/config';
+import { credential } from 'firebase-admin';
 
 // Ensure Firebase admin is initialized
+let adminApp: App;
 if (!getApps().length) {
-  initializeApp({
-      // As we are on the server, we can use service account credentials
-      // For this example, we'll just use the public config, but in a real-world secure backend
-      // you MUST use a service account.
-  });
+  // In a real production environment, you would use a service account for secure authentication.
+  // For this development setup, we initialize without specific credentials,
+  // relying on Application Default Credentials if available (e.g., in Google Cloud).
+  // If running locally without ADC, this might require `gcloud auth application-default login`.
+  adminApp = initializeApp();
+} else {
+  adminApp = getApps()[0];
 }
 
-const db = getFirestore();
+const db = getFirestore(adminApp);
 
 export async function getAiSuggestions(
   preferences: string,
