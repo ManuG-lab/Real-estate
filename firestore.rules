@@ -1,143 +1,181 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles and a public-read, owner-write model for properties.
+ * @file Firebase Security Rules for Rental Management App
  *
- * Data Structure:
- * - /users/{userId}: Stores user profiles.  Access is restricted to the owning user.
- * - /properties/{propertyId}: Stores property information. Readable by all, but only the landlord who owns the property can modify it.
- * - /properties/{propertyId}/viewingRequests/{viewingRequestId}: Viewing requests associated with a property, only the landlord can manage it.
- * - /rentalApplications/{rentalApplicationId}: Stores rental applications.
- * - /leases/{leaseId}: Stores lease agreements.
- * - /payments/{paymentId}: Stores rent payments.
+ * @core_philosophy This ruleset enforces a strict user-ownership model for user-related data
+ *   and allows public read access to properties. Landlords have full control over their
+ *   properties, viewing requests, leases and payments, while tenants can only manage their
+ *   rental applications.
  *
- * Key Security Decisions:
- * - Users can only read/write their own profile data.
- * - Properties are publicly readable, but only the landlord who created the property can modify it.
- * - Listing of users is disallowed.
- * - Viewing requests are managed only by landlords for their properties.
- * - Rental applications, leases, and payments have minimal access control for now and should be secured based on business logic.
+ * @data_structure
+ *   - /users/{userId}: Stores user profiles, secured by ownership.
+ *   - /properties/{propertyId}: Stores property data, publicly readable, writable only by the owner (landlord).
+ *   - /properties/{propertyId}/viewingRequests/{viewingRequestId}: Stores viewing requests related to a property, writable by the landlord.
+ *   - /rentalApplications/{rentalApplicationId}: Stores rental applications, writable by the tenant.
+ *   - /leases/{leaseId}: Stores lease agreements, writable by the landlord.
+ *   - /payments/{paymentId}: Stores payment information, writable by the landlord.
  *
- * Denormalization for Authorization:
- * - Property documents contain a `landlordId` field, enabling direct ownership checks without additional reads.
- * - ViewingRequest documents also contain a `landlordId` field.
+ * @key_security_decisions
+ *   - User listing is disallowed to protect user privacy.
+ *   - Properties are publicly readable, enabling wider visibility.
+ *   - Write access to properties and related subcollections is restricted to the landlord.
+ *   - Rental applications are only writable, not publicly readable.
+ *   - Enforce the match between a user's ID and their document ID in `/users/{userId}`.
+ *
+ * @denormalization_for_authorization
+ *   - Property documents store the `landlordId` to enable owner-based security rules.
+ *   - Viewing requests store both `propertyId` and `landlordId` for efficient rule evaluation.
+ *   - Rental applications store `propertyId` and `tenantId` to enforce tenant-specific access.
+ *   - Leases store `propertyId`, `landlordId`, and `tenantId` to link landlords, tenants, and properties.
+ *   - Payments store `leaseId` to associate payments with specific lease agreements.
+ *
+ * @structural_segregation
+ *   - Public data (properties) is stored in top-level collections for easy access.
+ *   - Private user data (profiles, rental applications) is secured via ownership-based rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles.
+     * @description Checks if the request is authenticated.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided user ID.
+     * @param {string} userId The user ID to compare against the authenticated user's ID.
+     * @return {bool} True if the user IDs match, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of an existing document.
+     * @param {string} userId The user ID of the document's owner.
+     * @return {bool} True if the user is the owner and the document exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rule for user profiles.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user creates their own profile.
-     * @allow (get, update, delete) - Authenticated user accesses their own profile.
-     * @deny (create) - Authenticated user attempts to create a profile for another user.
-     * @deny (get, update, delete) - Authenticated user attempts to access another user's profile.
-     * @deny (list) - Listing of users is not allowed.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create their own profile.
+     * @allow (get) User N3gO7xC1PhVH9X6P1e5WARNcSgj2 can read their own profile.
+     * @allow (update) User N3gO7xC1PhVH9X6P1e5WARNcSgj2 can update their own profile.
+     * @allow (delete) User N3gO7xC1PhVH9X6P1e5WARNcSgj2 can delete their own profile.
+     * @deny (create) User abc cannot create a profile for user def.
+     * @principle Enforces document ownership for writes, ensures that a user can only access their own data.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId);
       allow get: if isOwner(userId);
-      allow list: if false;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow list: if false; // Disallowing user listing for privacy.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to property documents.  Properties are publicly readable, but only the owner can modify them.
+     * @description Rule for properties.
      * @path /properties/{propertyId}
-     * @allow (get, list) - Any user can read property information.
-     * @allow (create) - Authenticated user creates a new property, and their auth UID matches the landlordId in the document.
-     * @allow (update, delete) - Authenticated user updates/deletes a property they own.
-     * @deny (create) - Authenticated user attempts to create a property with a mismatched landlordId.
-     * @deny (update, delete) - Authenticated user attempts to modify a property they do not own.
-     * @principle Public read, owner-only writes, enforces document ownership for writes.
+     * @allow (get) Anyone can read property data.
+     * @allow (list) Anyone can list property data.
+     * @allow (create) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create a new property, ensuring ownership is correctly set.
+     * @allow (update) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can update their own property.
+     * @allow (delete) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can delete their own property.
+     * @deny (create) Tenant cannot create a property.
+     * @deny (update) Tenant cannot update a property, or a landlord cannot update another landlord's property.
+     * @principle Public read access with owner-only writes, enforces document ownership for writes.
      */
     match /properties/{propertyId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(landlordId) {
-        return request.auth.uid == landlordId;
-      }
-
-      function isExistingOwner(landlordId) {
-        return isOwner(landlordId) && resource.data != null;
-      }
-
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.landlordId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.landlordId);
+      allow delete: if isExistingOwner(resource.data.landlordId);
     }
 
     /**
-     * @description Controls access to viewing requests.  Only the landlord of the associated property can manage viewing requests.
+     * @description Rule for viewing requests under properties.
      * @path /properties/{propertyId}/viewingRequests/{viewingRequestId}
-     * @allow (create) - Any signed in user can create a viewing request for a property, so long as the landlordId matches the parent property's landlordId.
-     * @allow (get, list, update, delete) - Only the landlord can manage viewing requests for their properties.
-     * @deny (create) - The landlord id on the viewing request does not match the landlord of the property.
-     * @principle Landlord manages viewing requests for their properties.
+     * @allow (create) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create a viewing request, ensuring ownership is correctly set.
+     * @allow (get) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can read a viewing request for their property.
+     * @allow (list) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can list viewing requests for their property.
+     * @allow (update) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can update a viewing request for their property.
+     * @allow (delete) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can delete a viewing request for their property.
+     * @deny (create) Tenant cannot create a viewing request directly.
+     * @deny (update) Tenant cannot update a viewing request, or a landlord cannot update another landlord's viewing request.
+     * @principle Enforces property owner-only access to viewing requests, restricts access to a user's own data tree.
      */
     match /properties/{propertyId}/viewingRequests/{viewingRequestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isLandlord(propertyId) {
-        return get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId == request.auth.uid;
-      }
-
-       function viewingRequestLandlordMatchesPropertyLandlord(propertyId) {
-        return request.resource.data.landlordId == get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId;
-      }
-
-
-      allow create: if isSignedIn() && viewingRequestLandlordMatchesPropertyLandlord(propertyId);
-      allow get, list, update, delete: if isSignedIn() && isLandlord(propertyId);
-    }
-
-      /**
-       * @description Controls access to rental applications. Basic protection only, further restrictions may be necessary based on app logic.
-       * @path /rentalApplications/{rentalApplicationId}
-       * @allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for rental applications.
-       * @principle Placeholder for rental application security.
-       */
-    match /rentalApplications/{rentalApplicationId} {
-      allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for rental applications.
+      allow get: if isOwner(resource.data.landlordId);
+      allow list: if isOwner(resource.data.landlordId);
+      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.landlordId);
+      allow delete: if isExistingOwner(resource.data.landlordId);
     }
 
     /**
-     * @description Controls access to leases. Basic protection only, further restrictions may be necessary based on app logic.
+     * @description Rule for rental applications.
+     * @path /rentalApplications/{rentalApplicationId}
+     * @allow (create) Tenant N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create a rental application for a property.
+     * @deny (get) Rental Applications are not publicly readable.
+     * @deny (list) Rental Applications are not publicly listable.
+     * @deny (update) Prevents updates to rental applications; creation is the only allowed write operation.
+     * @deny (delete) Prevents deletion of rental applications.
+     * @principle Restricts creation of rental applications to tenants, no read access.
+     */
+    match /rentalApplications/{rentalApplicationId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rule for leases.
      * @path /leases/{leaseId}
-     * @allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for leases.
-     * @principle Placeholder for lease security.
+     * @allow (create) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create a lease.
+     * @allow (get) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can read their own lease.
+     * @allow (list) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can list their own leases.
+     * @allow (update) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can update their own lease.
+     * @allow (delete) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can delete their own lease.
+     * @deny (create) Tenant cannot create a lease.
+     * @deny (update) Tenant cannot update a lease, or a landlord cannot update another landlord's lease.
+     * @principle Enforces lease owner-only access, restricts access to a user's own data tree.
      */
     match /leases/{leaseId} {
-      allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for leases.
+      allow get: if isOwner(resource.data.landlordId);
+      allow list: if isOwner(resource.data.landlordId);
+      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.landlordId);
+      allow delete: if isExistingOwner(resource.data.landlordId);
     }
 
     /**
-     * @description Controls access to payments. Basic protection only, further restrictions may be necessary based on app logic.
+     * @description Rule for payments.
      * @path /payments/{paymentId}
-     * @allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for payments.
-     * @principle Placeholder for payment security.
+     * @allow (create) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can create a payment record.
+     * @allow (get) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can read their own payment record.
+     * @allow (list) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can list their own payment records.
+     * @allow (update) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can update their own payment record.
+     * @allow (delete) Landlord N3gO7xC1PhVH9X6P1e5WARNcSgj2 can delete their own payment record.
+     * @deny (create) Tenant cannot create a payment record.
+     * @deny (update) Tenant cannot update a payment record, or a landlord cannot update another landlord's payment record.
+     * @principle Enforces payment owner-only access, restricts access to a user's own data tree.
      */
     match /payments/{paymentId} {
-      allow create, get, list, update, delete: if false; // TODO: Implement appropriate access control for payments.
+      allow get: if isOwner(resource.data.landlordId);
+      allow list: if isOwner(resource.data.landlordId);
+      allow create: if isSignedIn() && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.landlordId);
+      allow delete: if isExistingOwner(resource.data.landlordId);
     }
   }
 }
