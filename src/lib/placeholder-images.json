@@ -1,0 +1,148 @@
+{
+  "placeholderImages": [
+    {
+      "id": "img-1",
+      "description": "Living room of sunny downtown apartment",
+      "imageUrl": "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxsaXZpbmclMjByb29tfGVufDB8fHx8MTc1ODY4NjQ4OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "living room",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-2",
+      "description": "Kitchen of sunny downtown apartment",
+      "imageUrl": "https://images.unsplash.com/photo-1630699293875-e56c25151c4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhcGFydG1lbnQlMjBraXRjaGVufGVufDB8fHx8MTc1ODcwNTgxMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "apartment kitchen",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-3",
+      "description": "Bedroom of sunny downtown apartment",
+      "imageUrl": "https://images.unsplash.com/photo-1652882860938-f90aa298e644?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhcGFydG1lbnQlMjBiZWRyb29tfGVufDB8fHx8MTc1ODcwNTgxMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "apartment bedroom",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-4",
+      "description": "Exterior of cozy suburban house",
+      "imageUrl": "https://images.unsplash.com/photo-1628624747186-a941c476b7ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzdWJ1cmJhbiUyMGhvdXNlfGVufDB8fHx8MTc1ODY5MzI2OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "suburban house",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-5",
+      "description": "Living room of cozy suburban house",
+      "imageUrl": "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxob3VzZSUyMGludGVyaW9yfGVufDB8fHx8MTc1ODcxNzExMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "house interior",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-6",
+      "description": "Backyard of cozy suburban house",
+      "imageUrl": "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxob3VzZSUyMGJhY2t5YXJkfGVufDB8fHx8MTc1ODc2NDg5M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "house backyard",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-7",
+      "description": "Main space of modern loft",
+      "imageUrl": "https://images.unsplash.com/photo-1505873242700-f289a29e1e0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxsb2Z0JTIwYXBhcnRtZW50fGVufDB8fHx8MTc1ODY5NzQ1MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "loft apartment",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-8",
+      "description": "Kitchen area of modern loft",
+      "imageUrl": "https://images.unsplash.com/photo-1622372738946-62e02505feb3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxtb2Rlcm4lMjBraXRjaGVufGVufDB8fHx8MTc1ODcxOTMzMXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "modern kitchen",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-9",
+      "description": "View from modern loft window",
+      "imageUrl": "https://images.unsplash.com/photo-1457030642598-b037296c9296?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaXR5JTIwdmlld3xlbnwwfHx8fDE3NTg3ODU5Njl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city view",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-10",
+      "description": "Exterior of lakeside cabin",
+      "imageUrl": "https://images.unsplash.com/photo-1726175388797-df38791e6e53?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsYWtlc2lkZSUyMGNhYmlufGVufDB8fHx8MTc1ODc4NTk2OXww&ixlib-rb-4.1.0&q=80&w=1080",
+      "imageHint": "lakeside cabin",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-11",
+      "description": "Interior of lakeside cabin",
+      "imageUrl": "https://images.unsplash.com/photo-1487695652027-48e475bfa86f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjYWJpbiUyMGludGVyaW9yfGVufDB8fHx8MTc1ODc4NTk3MHww&ixlib-rb-4.1.0&q=80&w=1080",
+      "imageHint": "cabin interior",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-12",
+      "description": "View from cabin deck",
+      "imageUrl": "https://images.unsplash.com/photo-1546587348-d12660c30c50?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxsYWtlJTIwdmlld3xlbnwwfHx8fDE3NTg3NzAyNjV8MA&ixlib-rb-4.1.0&q=80&w=1080",
+      "imageHint": "lake view",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-13",
+      "description": "Interior of chic urban studio",
+      "imageUrl": "https://images.unsplash.com/photo-1585128792103-0b591f96512e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzdHVkaW8lMjBhcGFydG1lbnR8ZW58MHx8fHwxNzU4NzI0Mzk2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "studio apartment",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-14",
+      "description": "Kitchenette of chic urban studio",
+      "imageUrl": "https://images.unsplash.com/photo-1593853761096-d0423b545cf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzbWFsbCUyMGtpdGNoZW58ZW58MHx8fHwxNzU4Nzg1OTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "small kitchen",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-15",
+      "description": "Sleeping area of chic urban studio",
+      "imageUrl": "https://images.unsplash.com/photo-1644319254804-5daea68c6845?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzdHVkaW8lMjBiZWRyb29tfGVufDB8fHx8MTc1ODc4NTk3MHww&ixlib-rb-4.1.0&q=80&w=1080",
+      "imageHint": "studio bedroom",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-16",
+      "description": "Exterior of family home with garden",
+      "imageUrl": "https://images.unsplash.com/photo-1601758003122-53c40e686a19?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxmYW1pbHklMjBob21lfGVufDB8fHx8MTc1ODc3ODM1OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "family home",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-17",
+      "description": "Garden of family home",
+      "imageUrl": "https://images.unsplash.com/photo-1530079427717-5d72ed352909?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8aG9tZSUyMGdhcmRlbnxlbnwwfHx8fDE3NTg3ODU5NzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "home garden",
+      "width": 800,
+      "height": 600
+    },
+    {
+      "id": "img-18",
+      "description": "Living room of family home",
+      "imageUrl": "https://images.unsplash.com/photo-1629330780790-1c156081cc79?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxob3VzZSUyMGxpdmluZ3Jvb218ZW58MHx8fHwxNzU4NzE1OTA2fDA&ixlibrb-4.1.0&q=80&w=1080",
+      "imageHint": "house livingroom",
+      "width": 800,
+      "height": 600
+    }
+  ]
+}

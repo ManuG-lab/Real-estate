@@ -1,0 +1,330 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user (either landlord or tenant) in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role: 'landlord' or 'tenant'."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "name",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Property": {
+      "title": "Property",
+      "type": "object",
+      "description": "Represents a rental property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the property entity."
+        },
+        "landlordId": {
+          "type": "string",
+          "description": "Reference to Landlord. (Relationship: Landlord 1:N Property)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the property."
+        },
+        "price": {
+          "type": "number",
+          "description": "Rental price of the property."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the property (e.g., address)."
+        },
+        "images": {
+          "type": "array",
+          "description": "URLs of images for the property.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "amenities": {
+          "type": "array",
+          "description": "List of amenities offered by the property.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "availability": {
+          "type": "string",
+          "description": "Current availability status of the property (e.g., 'available', 'occupied')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the property."
+        }
+      },
+      "required": [
+        "id",
+        "landlordId",
+        "name",
+        "price",
+        "location",
+        "availability"
+      ]
+    },
+    "ViewingRequest": {
+      "title": "ViewingRequest",
+      "type": "object",
+      "description": "Represents a viewing request submitted by a user for a property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the viewing request entity."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to Property. (Relationship: Property 1:N ViewingRequest)"
+        },
+        "landlordId": {
+          "type": "string",
+          "description": "Reference to Landlord. (Relationship: Landlord 1:N ViewingRequest)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the person requesting the viewing."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email of the person requesting the viewing.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the person requesting the viewing."
+        },
+        "preferredTime": {
+          "type": "string",
+          "description": "Preferred time for the viewing."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the viewing request (e.g., 'pending', 'approved', 'rejected')."
+        },
+        "requestDate": {
+          "type": "string",
+          "description": "Date when the viewing request was submitted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "propertyId",
+        "landlordId",
+        "name",
+        "preferredTime"
+      ]
+    },
+    "RentalApplication": {
+      "title": "RentalApplication",
+      "type": "object",
+      "description": "Represents a rental application submitted by a tenant for a property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the rental application entity."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to Property. (Relationship: Property 1:N RentalApplication)"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N RentalApplication)"
+        },
+        "applicationDate": {
+          "type": "string",
+          "description": "Date when the application was submitted.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the application (e.g., 'pending', 'approved', 'rejected')."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any notes added with the rental application"
+        }
+      },
+      "required": [
+        "id",
+        "propertyId",
+        "tenantId",
+        "applicationDate",
+        "status"
+      ]
+    },
+    "Lease": {
+      "title": "Lease",
+      "type": "object",
+      "description": "Represents a lease agreement between a landlord and a tenant for a property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the lease entity."
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "Reference to Property. (Relationship: Property 1:1 Lease)"
+        },
+        "landlordId": {
+          "type": "string",
+          "description": "Reference to Landlord. (Relationship: Landlord 1:N Lease)"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:1 Lease)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the lease.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the lease.",
+          "format": "date-time"
+        },
+        "rentAmount": {
+          "type": "number",
+          "description": "Monthly rent amount."
+        },
+        "paymentDueDate": {
+          "type": "number",
+          "description": "Day of the month when rent is due."
+        },
+        "leaseDocumentUrl": {
+          "type": "string",
+          "description": "A URL pointing to the signed lease"
+        }
+      },
+      "required": [
+        "id",
+        "propertyId",
+        "landlordId",
+        "tenantId",
+        "startDate",
+        "endDate",
+        "rentAmount",
+        "paymentDueDate"
+      ]
+    },
+    "Payment": {
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a rent payment made by a tenant for a lease.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment entity."
+        },
+        "leaseId": {
+          "type": "string",
+          "description": "Reference to Lease. (Relationship: Lease 1:N Payment)"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "Date when the payment was made.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used (e.g., 'Mpesa', 'Stripe', 'PayPal')."
+        },
+        "confirmationNumber": {
+          "type": "string",
+          "description": "Confirmation number or transaction ID from the payment gateway."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the payment (e.g., 'paid', 'pending', 'failed')."
+        }
+      },
+      "required": [
+        "id",
+        "leaseId",
+        "paymentDate",
+        "amount",
+        "paymentMethod",
+        "status"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles (landlords and tenants)."
+    },
+    "/properties/{propertyId}": {
+      "schema": {
+        "$ref": "#/entities/Property"
+      },
+      "description": "Stores property information."
+    },
+    "/properties/{propertyId}/viewingRequests/{viewingRequestId}": {
+      "schema": {
+        "$ref": "#/entities/ViewingRequest"
+      },
+      "description": "Stores viewing requests for a property."
+    },
+    "/rentalApplications/{rentalApplicationId}": {
+      "schema": {
+        "$ref": "#/entities/RentalApplication"
+      },
+      "description": "Stores rental applications submitted by tenants."
+    },
+    "/leases/{leaseId}": {
+      "schema": {
+        "$ref": "#/entities/Lease"
+      },
+      "description": "Stores lease agreements."
+    },
+    "/payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/entities/Payment"
+      },
+      "description": "Stores rent payments."
+    }
+  }
+}
