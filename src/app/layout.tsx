@@ -6,7 +6,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'RealEstateConnectt',
+  title: 'RealEstateConnect',
   description:
     'A scalable real estate and rental management platform built with Next.js and Firebase.',
 };
