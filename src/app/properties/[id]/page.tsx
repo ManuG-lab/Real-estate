@@ -1,4 +1,3 @@
-
 'use client';
 
 import { notFound } from 'next/navigation';
@@ -22,8 +21,8 @@ import type { Property, User } from '@/lib/types';
 import Loading from '@/app/loading';
 import React from 'react';
 
-export default function PropertyPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const { firestore } = useFirebase();
 
   const propertyRef = React.useMemo(() => doc(firestore, 'properties', id), [firestore, id]);
@@ -41,6 +40,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
 
   if (!property) {
     notFound();
+    return null;
   }
   
   const images = getPlaceholderImages(property.imageIds || ['img-1', 'img-2', 'img-3']);
@@ -54,10 +54,11 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
   
   const getInitials = (name: string | null | undefined) => {
     if (!name) return '';
-    const names = name.split(' ');
-    return names.map(n => n[0]).join('');
-  }
-
+    const names = name.trim().split(' ').filter(Boolean);
+    if (names.length === 0) return '';
+    if (names.length === 1) return names[0][0].toUpperCase();
+    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -100,7 +101,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                         </p>
                     </div>
                     <div className="mt-4 md:mt-0 text-right">
-                        <p className="font-headline text-3xl font-bold text-accent">${property.price.toLocaleString()}<span className="text-lg font-normal text-muted-foreground">/month</span></p>
+                        <p className="font-headline text-3xl font-bold text-accent">${property.price?.toLocaleString()}<span className="text-lg font-normal text-muted-foreground">/month</span></p>
                         <Badge variant={property.availability === 'available' ? 'default' : 'destructive'} className="mt-2 capitalize bg-primary text-primary-foreground">
                             {property.availability}
                         </Badge>
@@ -120,7 +121,7 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                 <div className="mt-8">
                     <h3 className="font-headline text-2xl font-semibold mb-4">Amenities</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {property.amenities.map(amenity => (
+                        {(property.amenities ?? []).map(amenity => (
                             <div key={amenity} className="flex items-center gap-2">
                                 <CheckCircle className="h-5 w-5 text-green-500" />
                                 <span className="text-muted-foreground">{amenity}</span>
@@ -141,12 +142,12 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
                     </CardHeader>
                     <CardContent className="flex items-center gap-4">
                         <Avatar className="h-16 w-16">
-                            <AvatarImage src={landlord.avatarUrl} alt={landlord.name} />
+                            <AvatarImage src={landlord.avatarUrl ?? ''} alt={landlord.name ?? ''} />
                             <AvatarFallback>{getInitials(landlord.name)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="font-bold text-lg">{landlord.name}</p>
-                            <p className="text-sm text-muted-foreground">{landlord.email}</p>
+                            <p className="font-bold text-lg">{landlord.name ?? 'Landlord'}</p>
+                            <p className="text-sm text-muted-foreground">{landlord.email ?? ''}</p>
                         </div>
                     </CardContent>
                 </Card>
