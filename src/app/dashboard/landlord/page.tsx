@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Building2, DollarSign, Users, CalendarClock } from 'lucide-react';
-import { useCollection, useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase, useUser } from '@/firebase';
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { Property, Payment, ViewingRequest, Lease, User } from '@/lib/types';
@@ -30,10 +30,10 @@ const useUsers = (userIds: string[]) => {
     const [isLoading, setIsLoading] = useState(false);
     
     // useMemo to stabilize the userIds array reference
-    const stableUserIds = useMemo(() => userIds.sort().join(','), [userIds]);
+    const stableUserIds = useMemo(() => userIds.length > 0 ? userIds.sort().join(',') : null, [userIds]);
 
     useEffect(() => {
-        if (!firestore || userIds.length === 0) {
+        if (!firestore || !stableUserIds) {
             setUsers({});
             return;
         }
@@ -68,7 +68,7 @@ const useUsers = (userIds: string[]) => {
 
         fetchUsers();
     // Depend on the stable, stringified version of the IDs
-    }, [firestore, stableUserIds]); 
+    }, [firestore, stableUserIds, userIds]); 
 
     return { users, isLoading: isLoading };
 }
@@ -78,14 +78,14 @@ export default function LandlordDashboard() {
   const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
 
-  const propertiesQuery = useMemoFirebase(() => 
+  const propertiesQuery = useMemo(() => 
     user ? query(collection(firestore, 'properties'), where('landlordId', '==', user.uid)) : null
   , [firestore, user]);
   const { data: landlordProperties, isLoading: propertiesLoading } = useCollection<Property>(propertiesQuery);
   
   const propertyIds = useMemo(() => landlordProperties?.map((p) => p.id) || [], [landlordProperties]);
 
-  const leasesQuery = useMemoFirebase(() => 
+  const leasesQuery = useMemo(() => 
     user && propertyIds.length > 0 ? query(collection(firestore, 'leases'), where('propertyId', 'in', propertyIds)) : null
   , [firestore, user, propertyIds]);
   const { data: landlordLeases, isLoading: leasesLoading } = useCollection<Lease>(leasesQuery);
@@ -100,12 +100,12 @@ export default function LandlordDashboard() {
 
   const leaseIds = useMemo(() => landlordLeases?.map((l) => l.id) || [], [landlordLeases]);
 
-  const paymentsQuery = useMemoFirebase(() => 
+  const paymentsQuery = useMemo(() => 
     user && leaseIds.length > 0 ? query(collection(firestore, 'payments'), where('leaseId', 'in', leaseIds)) : null
   , [firestore, user, leaseIds]);
   const { data: landlordPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
   
-  const requestsQuery = useMemoFirebase(() =>
+  const requestsQuery = useMemo(() =>
     user && propertyIds.length > 0 ? query(collection(firestore, 'viewingRequests'), where('propertyId', 'in', propertyIds)) : null
   , [firestore, user, propertyIds]);
   const { data: landlordViewingRequests, isLoading: requestsLoading } = useCollection<ViewingRequest>(requestsQuery);

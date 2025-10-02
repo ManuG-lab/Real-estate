@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { DataTable } from '@/components/data-table';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase, useUser } from '@/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { Payment, Lease, Property, User } from '@/lib/types';
@@ -40,7 +40,7 @@ export default function LandlordPaymentsPage() {
   const [paymentData, setPaymentData] = React.useState<PaymentData[]>([]);
   const [dataLoading, setDataLoading] = React.useState(true);
 
-  const leasesQuery = useMemoFirebase(
+  const leasesQuery = React.useMemo(
     () => user ? query(collection(firestore, 'leases'), where('landlordId', '==', user.uid)) : null,
     [firestore, user]
   );
@@ -48,7 +48,7 @@ export default function LandlordPaymentsPage() {
 
   const leaseIds = React.useMemo(() => leases?.map(l => l.id) || [], [leases]);
 
-  const paymentsQuery = useMemoFirebase(
+  const paymentsQuery = React.useMemo(
     () => leaseIds.length > 0 ? query(collection(firestore, 'payments'), where('leaseId', 'in', leaseIds)) : null,
     [firestore, leaseIds]
   );

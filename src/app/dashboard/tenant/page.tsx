@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, CalendarDays, Home, CreditCard, AlertCircle, DollarSign } from 'lucide-react';
-import { useCollection, useFirebase, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import { Separator } from '@/components/ui/separator';
@@ -32,10 +32,10 @@ const useProperties = (propertyIds: string[]) => {
     const [properties, setProperties] = useState<Record<string, Property>>({});
     const [isLoading, setIsLoading] = useState(false);
 
-    const stablePropertyIds = useMemo(() => propertyIds.sort().join(','), [propertyIds]);
+    const stablePropertyIds = useMemo(() => propertyIds.length > 0 ? propertyIds.sort().join(',') : null, [propertyIds]);
 
     useEffect(() => {
-        if (!firestore || propertyIds.length === 0) {
+        if (!firestore || !stablePropertyIds) {
             setProperties({});
             return;
         };
@@ -69,7 +69,7 @@ const useProperties = (propertyIds: string[]) => {
         };
 
         fetchProperties();
-    }, [firestore, stablePropertyIds]);
+    }, [firestore, stablePropertyIds, propertyIds]);
 
     return { properties, isLoading: isLoading };
 }
@@ -79,7 +79,7 @@ export default function TenantDashboard() {
   const { user, isUserLoading } = useUser();
 
   // Find the active lease for the current tenant
-  const leaseQuery = useMemoFirebase(() => 
+  const leaseQuery = useMemo(() => 
     user ? query(collection(firestore, 'leases'), where('tenantId', '==', user.uid), where('signed', '==', true)) : null, 
     [firestore, user]
   );
@@ -87,21 +87,21 @@ export default function TenantDashboard() {
   const tenantLease = tenantLeases?.[0]; // Assuming one active lease per tenant
 
   // Get the property associated with the lease
-  const propertyRef = useMemoFirebase(() => 
+  const propertyRef = useMemo(() => 
     tenantLease ? doc(firestore, 'properties', tenantLease.propertyId) : null,
     [firestore, tenantLease]
   );
   const { data: property, isLoading: propertyLoading } = useDoc<Property>(propertyRef);
 
   // Get payments for that lease
-  const paymentsQuery = useMemoFirebase(() => 
+  const paymentsQuery = useMemo(() => 
     tenantLease ? query(collection(firestore, 'payments'), where('leaseId', '==', tenantLease.id)) : null,
     [firestore, tenantLease]
   );
   const { data: tenantPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
 
   // Get the tenant's applications
-  const applicationsQuery = useMemoFirebase(() => 
+  const applicationsQuery = useMemo(() => 
     user ? query(collection(firestore, 'rentalApplications'), where('tenantId', '==', user.uid)) : null,
     [firestore, user]
   );

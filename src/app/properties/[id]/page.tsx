@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RequestViewingForm } from '@/components/request-viewing-form';
 import { MapPin, BedDouble, Bath, Square, Building, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Property, User } from '@/lib/types';
 import Loading from '@/app/loading';
@@ -26,10 +26,10 @@ export default function PropertyPage({ params }: { params: { id: string } }) {
   const { id } = React.use(params);
   const { firestore } = useFirebase();
 
-  const propertyRef = useMemoFirebase(() => doc(firestore, 'properties', id), [firestore, id]);
+  const propertyRef = React.useMemo(() => doc(firestore, 'properties', id), [firestore, id]);
   const { data: property, isLoading: propertyLoading } = useDoc<Property>(propertyRef);
 
-  const landlordRef = useMemoFirebase(() => 
+  const landlordRef = React.useMemo(() => 
     property ? doc(firestore, 'users', property.landlordId) : null, 
     [firestore, property]
   );

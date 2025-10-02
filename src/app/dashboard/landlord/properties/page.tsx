@@ -20,7 +20,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { DataTable } from '@/components/data-table';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase, useUser } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { Property } from '@/lib/types';
@@ -112,7 +112,7 @@ export default function LandlordPropertiesPage() {
     []
   );
 
-  const propertiesQuery = useMemoFirebase(
+  const propertiesQuery = React.useMemo(
     () =>
       user
         ? query(
@@ -142,7 +142,7 @@ export default function LandlordPropertiesPage() {
 
   const isLoading = isUserLoading || propertiesLoading;
 
-  if (isLoading) {
+  if (isLoading && !properties) {
     return <Loading />;
   }
 
@@ -170,7 +170,7 @@ export default function LandlordPropertiesPage() {
               className="max-w-sm"
             />
           </div>
-          <DataTable table={table} />
+          <DataTable table={table} isLoading={isLoading && !properties} />
         </CardContent>
       </Card>
     </div>
