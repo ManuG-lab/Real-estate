@@ -23,7 +23,7 @@ import Loading from '@/app/loading';
 import React from 'react';
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
-  const { id } = React.use(params);
+  const { id } = params;
   const { firestore } = useFirebase();
 
   const propertyRef = React.useMemo(() => doc(firestore, 'properties', id), [firestore, id]);
