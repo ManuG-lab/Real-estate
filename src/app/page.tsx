@@ -7,17 +7,7 @@ import { AiSuggester } from '@/components/ai-suggester';
 import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import Loading from './loading';
-import Image from 'next/image';
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import ChatDialog from './globallayouts/ChatDialog';
 
