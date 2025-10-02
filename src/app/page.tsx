@@ -7,8 +7,34 @@ import { AiSuggester } from '@/components/ai-suggester';
 import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import Loading from './loading';
+import Image from 'next/image';
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import ChatDialog from './globallayouts/ChatDialog';
+
+
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
+
+
+
+interface Message {
+  sender: "you" | "REA";
+  message: string;
+}
 
 export default function Home() {
+ 
+
+ 
   const { firestore } = useFirebase();
 
   const propertiesQuery = useMemoFirebase(
@@ -42,7 +68,7 @@ export default function Home() {
 
       <section>
         <h2 className="font-headline text-3xl font-semibold mb-6">
-          Available Rentals
+          Available Rental
         </h2>
         {availableProperties && availableProperties.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -56,6 +82,8 @@ export default function Home() {
           </div>
         )}
       </section>
+
+        <ChatDialog/>
     </div>
   );
 }
