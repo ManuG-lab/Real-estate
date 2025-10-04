@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { DataTable } from '@/components/data-table';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase, useUser } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { Lease, User, Property } from '@/lib/types';
@@ -39,7 +39,7 @@ export default function LandlordTenantsPage() {
   const [tenantData, setTenantData] = React.useState<TenantData[]>([]);
   const [dataLoading, setDataLoading] = React.useState(true);
 
-  const leasesQuery = useMemoFirebase(
+  const leasesQuery = React.useMemo(
     () =>
       user
         ? query(collection(firestore, 'leases'), where('landlordId', '==', user.uid))
@@ -49,30 +49,37 @@ export default function LandlordTenantsPage() {
   const { data: leases, isLoading: leasesLoading } = useCollection<Lease>(leasesQuery);
 
   React.useEffect(() => {
-    if (leasesLoading || !leases || !firestore) return;
+    if (leasesLoading || !leases || !firestore) {
+      if (!leasesLoading) {
+        setDataLoading(false);
+      }
+      return;
+    }
 
     const fetchData = async () => {
       setDataLoading(true);
       const tenantIds = Array.from(new Set(leases.map((l) => l.tenantId)));
       const propertyIds = Array.from(new Set(leases.map((l) => l.propertyId)));
 
-      const tenants: Record<string, User> = {};
-      if (tenantIds.length > 0) {
-        const tenantsQuery = query(collection(firestore, 'users'), where('id', 'in', tenantIds));
-        const tenantsSnapshot = await getDocs(tenantsQuery);
-        tenantsSnapshot.forEach((doc) => {
-          tenants[doc.id] = { id: doc.id, ...doc.data() } as User;
-        });
+      if (tenantIds.length === 0 || propertyIds.length === 0) {
+        setTenantData([]);
+        setDataLoading(false);
+        return;
       }
 
+      const tenants: Record<string, User> = {};
+      const tenantsQuery = query(collection(firestore, 'users'), where('id', 'in', tenantIds));
+      const tenantsSnapshot = await getDocs(tenantsQuery);
+      tenantsSnapshot.forEach((doc) => {
+        tenants[doc.id] = { id: doc.id, ...doc.data() } as User;
+      });
+
       const properties: Record<string, Property> = {};
-      if (propertyIds.length > 0) {
-        const propertiesQuery = query(collection(firestore, 'properties'), where('id', 'in', propertyIds));
-        const propertiesSnapshot = await getDocs(propertiesQuery);
-        propertiesSnapshot.forEach((doc) => {
-          properties[doc.id] = { id: doc.id, ...doc.data() } as Property;
-        });
-      }
+      const propertiesQuery = query(collection(firestore, 'properties'), where('id', 'in', propertyIds));
+      const propertiesSnapshot = await getDocs(propertiesQuery);
+      propertiesSnapshot.forEach((doc) => {
+        properties[doc.id] = { id: doc.id, ...doc.data() } as Property;
+      });
       
       const combinedData = leases.map((lease) => {
         const tenant = tenants[lease.tenantId];
@@ -80,11 +87,12 @@ export default function LandlordTenantsPage() {
         const endDate = (lease.endDate as any)?.toDate ? (lease.endDate as any).toDate() : new Date(lease.endDate);
 
         return {
-          ...tenant,
+          ...(tenant || {}),
+          id: lease.tenantId,
           propertyName: property?.name || 'N/A',
           leaseEndDate: endDate.toLocaleDateString(),
-        };
-      });
+        } as TenantData;
+      }).filter(td => td.name); // Filter out tenants that might not have been fetched
 
       setTenantData(combinedData);
       setDataLoading(false);
@@ -140,9 +148,9 @@ export default function LandlordTenantsPage() {
     },
   });
 
-  const isLoading = isUserLoading || dataLoading;
+  const isLoading = isUserLoading || dataLoading || leasesLoading;
 
-  if (isLoading) {
+  if (isLoading && tenantData.length === 0) {
     return <Loading />;
   }
 
@@ -166,7 +174,7 @@ export default function LandlordTenantsPage() {
               className="max-w-sm"
             />
           </div>
-          <DataTable table={table} />
+          <DataTable table={table} isLoading={isLoading && tenantData.length === 0} />
         </CardContent>
       </Card>
     </div>

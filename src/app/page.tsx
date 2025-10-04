@@ -1,12 +1,13 @@
 'use client';
 
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebase } from '@/firebase';
 import { PropertyCard } from '@/components/property-card';
 import { PropertyFilters } from '@/components/property-filters';
 import { AiSuggester } from '@/components/ai-suggester';
 import { collection, query, where } from 'firebase/firestore';
 import type { Property } from '@/lib/types';
 import Loading from './loading';
+import React from 'react';
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import ChatDialog from './globallayouts/ChatDialog';
@@ -27,7 +28,7 @@ export default function Home() {
  
   const { firestore } = useFirebase();
 
-  const propertiesQuery = useMemoFirebase(
+  const propertiesQuery = React.useMemo(
     () => query(collection(firestore, 'properties'), where('availability', '==', 'available')),
     [firestore]
   );

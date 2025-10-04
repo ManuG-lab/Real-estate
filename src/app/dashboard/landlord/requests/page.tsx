@@ -19,8 +19,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { DataTable } from '@/components/data-table';
-import { useCollection, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
+import { useCollection, useFirebase, useUser } from '@/firebase';
+import { collection, query, where, doc, updateDoc, collectionGroup } from 'firebase/firestore';
 import Loading from '@/app/loading';
 import type { ViewingRequest, Property } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +29,10 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Check, X, MoreVertical } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export default function LandlordRequestsPage() {
   const { firestore } = useFirebase();
@@ -49,28 +46,26 @@ export default function LandlordRequestsPage() {
     to: new Date(),
   });
 
-  const propertiesQuery = useMemoFirebase(
+  const propertiesQuery = React.useMemo(
     () => user ? query(collection(firestore, 'properties'), where('landlordId', '==', user.uid)) : null,
     [firestore, user]
   );
   const { data: properties, isLoading: propertiesLoading } = useCollection<Property>(propertiesQuery);
 
-  const propertyIds = React.useMemo(() => properties?.map(p => p.id) || [], [properties]);
-
-  const requestsQuery = useMemoFirebase(() => {
-    if (!user || propertyIds.length === 0 || !date?.from) return null;
+  const requestsQuery = React.useMemo(() => {
+    if (!user || !date?.from) return null;
     
-    let q = query(collection(firestore, 'viewingRequests'), where('propertyId', 'in', propertyIds), where('preferredTime', '>=', date.from));
+    let q = query(collectionGroup(firestore, 'viewingRequests'), where('landlordId', '==', user.uid), where('requestDate', '>=', date.from));
     if (date.to) {
-        q = query(q, where('preferredTime', '<=', date.to));
+        q = query(q, where('requestDate', '<=', date.to));
     }
     return q;
-  }, [firestore, user, propertyIds, date]);
+  }, [firestore, user, date]);
 
   const { data: requests, isLoading: requestsLoading } = useCollection<ViewingRequest>(requestsQuery);
 
-  const handleStatusUpdate = async (requestId: string, status: 'confirmed' | 'cancelled') => {
-    const requestRef = doc(firestore, 'viewingRequests', requestId);
+  const handleStatusUpdate = async (request: ViewingRequest, status: 'confirmed' | 'cancelled') => {
+    const requestRef = doc(firestore, `properties/${request.propertyId}/viewingRequests`, request.id);
     try {
       await updateDoc(requestRef, { status });
       toast({
@@ -79,6 +74,12 @@ export default function LandlordRequestsPage() {
       });
     } catch (error) {
       console.error('Failed to update status:', error);
+       const permissionError = new FirestorePermissionError({
+        path: requestRef.path,
+        operation: 'update',
+        requestResourceData: { status }
+      });
+      errorEmitter.emit('permission-error', permissionError);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -141,7 +142,7 @@ export default function LandlordRequestsPage() {
               size="sm"
               variant="outline"
               className="h-8 w-8 p-0"
-              onClick={() => handleStatusUpdate(request.id, 'confirmed')}
+              onClick={() => handleStatusUpdate(request, 'confirmed')}
             >
               <Check className="h-4 w-4" />
               <span className="sr-only">Approve</span>
@@ -150,7 +151,7 @@ export default function LandlordRequestsPage() {
               size="sm"
               variant="destructive"
                className="h-8 w-8 p-0"
-              onClick={() => handleStatusUpdate(request.id, 'cancelled')}
+              onClick={() => handleStatusUpdate(request, 'cancelled')}
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Cancel</span>
@@ -195,7 +196,7 @@ export default function LandlordRequestsPage() {
           <div className="flex items-center py-4">
              <DateRangePicker date={date} onDateChange={setDate} />
           </div>
-          <DataTable table={table} isLoading={isLoading} />
+          <DataTable table={table} isLoading={isLoading && !requests}/>
         </CardContent>
       </Card>
     </div>
