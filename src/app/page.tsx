@@ -48,9 +48,7 @@ export default function Home() {
           Discover the perfect rental property that fits your lifestyle and
           budget.
         </p>
-        <div className="mt-6">
-          <AiSuggester />
-        </div>
+       
       </section>
 
       <section className="mb-8">

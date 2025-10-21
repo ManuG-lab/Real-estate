@@ -3,6 +3,8 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { getPlaceholderImages } from '@/lib/placeholder-images';
+import { useParams } from "next/navigation";
+
 import {
   Carousel,
   CarouselContent,
@@ -21,8 +23,8 @@ import type { Property, User } from '@/lib/types';
 import Loading from '@/app/loading';
 import React from 'react';
 
-export default function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = React.use(params);
+export default function PropertyPage (){
+  const { id } = useParams<{ id: string }>();   
   const { firestore } = useFirebase();
 
   const propertyRef = React.useMemo(() => doc(firestore, 'properties', id), [firestore, id]);

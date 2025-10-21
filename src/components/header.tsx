@@ -31,6 +31,7 @@ export function Header() {
 
   const navLinks = [
     { href: '/', label: 'Rentals', icon: Home },
+    { href: '/map', label: 'Map', icon: Home },
     ...(userRole === 'landlord' ? [{ href: '/dashboard/landlord', label: 'Dashboard', icon: LayoutDashboard }] : []),
     ...(userRole === 'tenant' ? [{ href: '/dashboard/tenant', label: 'Dashboard', icon: LayoutDashboard }] : []),
   ];
@@ -101,7 +102,7 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'User'} />
+                      <AvatarImage src={user.photoURL || "/Contatos.jpeg"} alt={user.displayName || 'User'} />
                       <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
                     </Avatar>
                   </Button>
